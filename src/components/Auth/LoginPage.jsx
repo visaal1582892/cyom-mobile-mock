@@ -29,7 +29,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#2E7D6B] to-[#A8E6CF] flex flex-col items-center justify-center p-6 text-[#1F2933] font-sans relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] flex flex-col items-center justify-center p-6 text-[#1F2933] font-sans relative overflow-hidden">
             {/* Background Decor */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-[#2E7D6B] rounded-full mix-blend-multiply filter blur-3xl opacity-20 translate-x-1/2 -translate-y-1/2 animate-blob"></div>
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#FFD166] rounded-full mix-blend-multiply filter blur-3xl opacity-20 -translate-x-1/2 translate-y-1/2 animate-blob animation-delay-2000"></div>
