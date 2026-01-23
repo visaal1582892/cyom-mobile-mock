@@ -13,7 +13,7 @@ const WellnessTab = () => {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#2E7D6B] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
+        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
 
             {/* Background Decor (Subtle overlays for richness) */}
             <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
