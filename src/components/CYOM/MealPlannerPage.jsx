@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
+import Loader from '../UI/Loader';
+import Toast from '../UI/Toast';
 import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets, calculateMacroTargets } from '../../utils/calculations';
 
 // Generic Modal (Reuse)
@@ -39,6 +41,7 @@ const MealPlannerPage = () => {
     // Save Modal State
     const [saveModalOpen, setSaveModalOpen] = useState(false);
     const [planName, setPlanName] = useState("");
+    const [toast, setToast] = useState(null); // { message, type }
 
     // Edit State
     const [editingWeightId, setEditingWeightId] = useState(null); // For main item weight
@@ -54,6 +57,12 @@ const MealPlannerPage = () => {
     const [plan, setPlan] = useState({ 1: { breakfast: [], lunch: [], snacks: [], dinner: [] } });
     const [loading, setLoading] = useState(true);
 
+    // Preferences State (Stored for filtering)
+    const [preferences, setPreferences] = useState({
+        dietPreference: 'Vegetarian', // Default
+        cuisineStyle: 'All'
+    });
+
     useEffect(() => {
         if (location.state) {
             // Check if loading a saved plan
@@ -62,6 +71,10 @@ const MealPlannerPage = () => {
                 setStats(saved.stats);
                 setPlan(saved.plan);
                 setPlanDuration(parseInt(saved.duration) || 1);
+                // Restore preferences if available in saved plan logic
+                if (saved.stats && saved.stats.preferences) {
+                    setPreferences(saved.stats.preferences);
+                }
                 setLoading(false);
                 return;
             }
@@ -80,7 +93,8 @@ const MealPlannerPage = () => {
             const target = calculateTargetCalories(tdee, loss, bmr);
             const split = calculateMealTargets(target);
 
-            setStats({ bmr, tdee, targetCalories: target, mealSplit: split });
+            setStats({ bmr, tdee, targetCalories: target, mealSplit: split, preferences: { dietPreference, cuisineStyle } });
+            setPreferences({ dietPreference, cuisineStyle });
             generateMultiDayPlan(days, split, dietPreference, cuisineStyle);
             setLoading(false);
         } else {
@@ -221,15 +235,41 @@ const MealPlannerPage = () => {
     // Helper to create/recalculate an item instance
     const createItemInstance = (baseItem, targetCals, targetWeight) => {
         // Find ratio based on weight change or calorie change
-        // Here we use weight as the driver if provided
-        const baseWeight = parseServingWeight(baseItem);
-        const ratio = targetWeight / baseWeight;
+        // We calculate ratio based on the targetCalories primarily for nutritional scaling logic
+        // But weight is the physical property.
+
+        let ratio;
+        let finalWeight;
+        let finalCals;
+
+        if (targetWeight) {
+            // Weight driven (Editing weight)
+            const baseW = parseServingWeight(baseItem) || 100;
+            ratio = targetWeight / baseW;
+            finalWeight = targetWeight;
+            finalCals = Math.round(baseItem.calories * ratio);
+        } else {
+            // Calorie driven (scaling to target)
+            ratio = targetCals / baseItem.calories;
+            const baseW = parseServingWeight(baseItem) || 100;
+            finalWeight = Math.round(baseW * ratio);
+            finalCals = Math.round(targetCals); // Force exact target match
+        }
+
+        // Optimization: If targetCals is explicitly passed (not driven by weight calc), use it.
+        // The original sig was (baseItem, targetCals, targetWeight).
+        // If we want to ENFORCE targetCals, we should allow calculatedCalories to equal targetCals.
+        // Let's assume if targetCals is provided, that's the source of truth for energy.
+
+        // RE-CALCULATING to ensure consistency
+        // If we use 'targetCals' as absolute truth:
+        // ratio = targetCals / baseItem.calories
 
         return {
             ...baseItem,
             uuid: baseItem.uuid || Math.random().toString(36),
-            calculatedCalories: Math.round(baseItem.calories * ratio),
-            calculatedWeight: Math.round(targetWeight),
+            calculatedCalories: finalCals,
+            calculatedWeight: finalWeight,
             macros: {
                 carbs: Math.round((baseItem.carbs || 0) * ratio),
                 protein: Math.round((baseItem.protein || 0) * ratio),
@@ -237,7 +277,8 @@ const MealPlannerPage = () => {
             },
             composition: baseItem.composition?.map(c => ({
                 ...c,
-                scaledWeight: Math.round(c.weight * ratio),
+                scaledWeight: Math.round((c.weight || 0) * ratio),
+                scaledCalories: Math.round((c.calories || 0) * ratio), // Use ratio for components
                 scaledCarbs: Math.round((c.carbs || 0) * ratio),
                 scaledProtein: Math.round((c.protein || 0) * ratio),
                 scaledFats: Math.round((c.fats || 0) * ratio)
@@ -247,8 +288,43 @@ const MealPlannerPage = () => {
 
     const handleAdd = (item) => {
         if (!activeMealSlot) return;
+
+        // --- SMART CALORIE MATCHING ---
+        // 1. Get Target for this slot
+        const slotTarget = stats.mealSplit[activeMealSlot] || 0;
+
+        // 2. Calculate Current Calories in this slot
+        const currentItems = plan[currentDay][activeMealSlot] || [];
+        const currentCals = currentItems.reduce((sum, i) => sum + (i.calculatedCalories || 0), 0);
+
+        // 3. Determine Remaining
+        const remaining = slotTarget - currentCals;
+
+        // 4. Decide on Target Calories for new item
+        // If remaining is substantial (e.g. > 50% of item's base cals), try to fill it.
+        // But don't create massive portions (cap at e.g. 200% of base serving or exact match).
+        let finalTargetCals = item.calories; // Default to base serving
         const baseWeight = parseServingWeight(item);
-        const newItem = createItemInstance(item, item.calories, baseWeight);
+
+        if (remaining > 50) {
+            // If we have a gap, let's try to fill it
+            // Scaling limit: Don't scale beyond 3x base serving to avoid absurdity
+            const maxReasonableCals = item.calories * 3;
+
+            if (remaining <= maxReasonableCals) {
+                finalTargetCals = remaining;
+            } else {
+                finalTargetCals = maxReasonableCals; // Fill as much as reasonable
+            }
+        }
+        // If remaining is negative or tiny, we stick to base serving (or user can edit).
+
+        // 5. Calculate Weight based on Calorie Target
+        // Ratio = Target / BaseCals
+        const ratio = finalTargetCals / item.calories;
+        const targetWeight = baseWeight * ratio;
+
+        const newItem = createItemInstance(item, finalTargetCals, targetWeight);
 
         setPlan(prev => ({
             ...prev,
@@ -258,6 +334,7 @@ const MealPlannerPage = () => {
             }
         }));
         setSearchModalOpen(false);
+        setToast({ message: `${item.name} added! (Scaled to ${Math.round(finalTargetCals)} kcal)`, type: 'success' });
     };
 
     const initiateSwap = (slot, originalItem) => {
@@ -277,6 +354,9 @@ const MealPlannerPage = () => {
 
         const origStats = getStats(originalItem);
 
+        // Use current preferences
+        const { dietPreference, cuisineStyle } = preferences;
+
         const candidates = foodDatabase.filter(item => {
             if (item.id === originalItem.id) return false;
             if (!item.isCooked) return false;
@@ -291,8 +371,20 @@ const MealPlannerPage = () => {
 
             // ... (rest of logic)
             // Filter by Region/Category if desired
-            const isVeg = userData.dietPreference === 'Vegetarian';
+            const isVeg = dietPreference === 'Vegetarian';
             if (isVeg && item.type !== 'veg') return false;
+
+            // Cuisine Filter (Optional strictness)
+            // If user selected specific cuisine, prioritize or strictly filter?
+            // Let's go with Priority: We don't strictly hide others in Swap unless specified, 
+            // BUT for the request "strictly according to diet ... cuisine style", let's be stricter.
+            // If Cuisine is not "Mixed" or "All", and Item Region doesn't match and isn't "All" or "International", maybe penalize or hide?
+            // Let's hide if completely different region family (e.g. South Indian vs North Indian) BUT allow 'All'/'International'.
+            if (cuisineStyle !== 'Mixed' && cuisineStyle !== 'All') {
+                // Allow same region OR 'All' OR 'International'
+                const regionMatch = (item.region === cuisineStyle) || (item.region === 'All') || (item.region === 'International');
+                if (!regionMatch) return false;
+            }
 
             const s = getStats(item);
             const tolerance = 10; // Relaxed tolerance to 10% to show more relevant "similar" items
@@ -353,7 +445,7 @@ const MealPlannerPage = () => {
             if (!candidate.isCooked) return false;
 
             // Respect Diet Preference
-            if (userData.dietPreference === 'Vegetarian' && candidate.type !== 'veg') return false;
+            if (preferences.dietPreference === 'Vegetarian' && candidate.type !== 'veg') return false;
 
             // Strict Filter: Category must match active Slot
             const activeSlotLower = slot.toLowerCase();
@@ -410,20 +502,36 @@ const MealPlannerPage = () => {
 
         let finalItem;
         if (swapType === 'macro') {
-            // New Item is already scaled in the map logic above (newItem.scaledWeight etc)
-            // But 'createItemInstance' expects baseItem, targetCals, targetWeight
-            // We can pass the calculated values.
-            // Note: createItemInstance recalculates based on ratio. 
-            // We can reuse it or manually construct. Reuse is safer.
-            // newItem.ratio was stored in map above
+            // Macro swap logic (already calculates precise needs)
             finalItem = createItemInstance(newItem, newItem.scaledCalories, newItem.scaledWeight);
         } else {
-            // Standard Smart Swap logic (Match Calories)
-            const targetCals = originalItem.calculatedCalories;
-            const baseWeight = parseServingWeight(newItem);
-            const ratio = targetCals / newItem.calories;
-            const targetWeight = baseWeight * ratio;
-            finalItem = createItemInstance(newItem, targetCals, targetWeight);
+            // --- SMART SWAP PRECISION ---
+            // 1. Calculate the Gap
+            const slotTarget = stats.mealSplit[slot] || 0;
+            const currentItems = plan[currentDay][slot] || [];
+
+            // Sum of OTHERS (excluding the one being swapped out)
+            const otherItemsCals = currentItems
+                .filter(i => i.uuid !== originalItem.uuid)
+                .reduce((sum, i) => sum + (i.calculatedCalories || 0), 0);
+
+            const remainingNeeded = slotTarget - otherItemsCals;
+
+            let targetCals = originalItem.calculatedCalories; // Fallback
+
+            // 2. Determine ideal target
+            // If remaining needed is reasonable (positive and not crazy huge), aim for it.
+            if (remainingNeeded > 50 && remainingNeeded < (originalItem.calculatedCalories * 3)) {
+                targetCals = remainingNeeded;
+            } else {
+                // If the gap is weird (negative or huge), stick to original item's cals
+                // effectively replacing "like for like" energy-wise.
+                targetCals = originalItem.calculatedCalories;
+            }
+
+            // 3. Create Instance
+            // explicit weight not passed = force calorie match
+            finalItem = createItemInstance(newItem, targetCals, null);
         }
 
         setPlan(prev => ({
@@ -435,6 +543,7 @@ const MealPlannerPage = () => {
         }));
 
         setSubstitutionModal({ open: false, originalItem: null, candidates: [], slot: null, swapType: null });
+        setToast({ message: "Item swapped! Calorie target aligned.", type: 'success' });
     };
 
     // --- EDIT HANDLERS ---
@@ -575,11 +684,16 @@ const MealPlannerPage = () => {
 
         setSaveModalOpen(false);
         setPlanName("");
-        alert("Plan Saved Successfully!"); // Or use a toast if available
+        setSaveModalOpen(false);
+        setPlanName("");
+        setToast({ message: "Plan Saved Successfully!", type: 'success' });
     };
+
+    if (loading) return <Loader text="Generating your personalized plan..." />;
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
 
             {/* SAVE MODAL */}
@@ -622,8 +736,17 @@ const MealPlannerPage = () => {
                                 // Base filter: Must be Cooked + Diet Pref
                                 let base = foodDatabase.filter(f =>
                                     f.isCooked &&
-                                    (userData.dietPreference === 'Vegetarian' ? f.type === 'veg' : true)
+                                    (preferences.dietPreference === 'Vegetarian' ? f.type === 'veg' : true)
                                 );
+
+                                // STRICT CUISINE FILTER
+                                if (preferences.cuisineStyle !== 'Mixed' && preferences.cuisineStyle !== 'All') {
+                                    base = base.filter(f =>
+                                        f.region === preferences.cuisineStyle ||
+                                        f.region === 'All' ||
+                                        f.region === 'International'
+                                    );
+                                }
 
                                 // STRICT SLOT FILTERING
                                 switch (activeMealSlot) {
@@ -652,12 +775,24 @@ const MealPlannerPage = () => {
                                 const w = parseServingWeight(item);
                                 const kcalPer100 = w > 0 ? Math.round((item.calories / w) * 100) : 0;
                                 return (
-                                    <button key={item.id} onClick={() => handleAdd(item)} className="w-full flex items-center justify-between p-3 hover:bg-green-50 rounded-xl text-gray-700">
-                                        <div className="text-left">
-                                            <div className="font-bold">{item.name}</div>
-                                            <div className="text-[10px] text-gray-400">{item.subType || item.category}</div>
+                                    <button key={item.id} onClick={() => handleAdd(item)} className="w-full text-left p-3 hover:bg-green-50 rounded-xl text-gray-700 border border-transparent hover:border-green-100 transition-all">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div>
+                                                <div className="font-bold">{item.name}</div>
+                                                <div className="text-[10px] text-gray-400">{item.subType || item.category}</div>
+                                            </div>
+                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 whitespace-nowrap">{kcalPer100} kcal/100g</span>
                                         </div>
-                                        <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">{kcalPer100} kcal/100g</span>
+                                        {/* TAGS DISPLAY */}
+                                        {item.tags && item.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {item.tags.map(tag => (
+                                                    <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </button>
                                 );
                             });
@@ -700,6 +835,17 @@ const MealPlannerPage = () => {
                                         <div className="text-left flex-1">
                                             <div className="font-bold text-gray-800">{item.name}</div>
                                             <div className="text-[10px] text-gray-400 mb-1">{item.subType}</div>
+
+                                            {/* TAGS IN SWAP */}
+                                            {item.tags && item.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mb-2">
+                                                    {item.tags.slice(0, 3).map(tag => (
+                                                        <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
 
                                             {/* Candidate Stats */}
                                             <div className="flex gap-2 text-[10px] items-center">

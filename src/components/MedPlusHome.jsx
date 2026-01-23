@@ -1,8 +1,20 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../data/store';
+import Loader from './UI/Loader';
 
 const MedPlusHome = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+
+    const handleCyomClick = () => {
+        setLoading(true);
+        setTimeout(() => {
+            navigate('/login');
+        }, 1500);
+    };
+
+    if (loading) return <Loader text="Entering Nutrition & Wellness..." />;
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
@@ -115,7 +127,7 @@ const MedPlusHome = () => {
 
             <div className="px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
                 <div
-                    onClick={() => navigate('/login')}
+                    onClick={handleCyomClick}
                     className="bg-primary hover:bg-teal-700 transition-colors w-full p-4 rounded-lg text-white flex items-center justify-between shadow-md cursor-pointer"
                 >
                     <div>

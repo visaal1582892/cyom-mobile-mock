@@ -5,6 +5,7 @@ export const foodDatabase = [
         id: 1, name: "Oats Porridge Meal", subType: "Combo Meal", region: "All",
         ediblePortion: 100, type: "veg", calories: 350, protein: 12, carbs: 55, fats: 8,
         category: "Breakfast", servingSize: "1 Bowl", isCooked: true, isCombo: true,
+        tags: ["High Fiber", "Vegetarian", "Heart Healthy"],
         composition: [
             { name: "Oats Porridge", weight: 250, calories: 250, protein: 10, carbs: 45, fats: 4 },
             { name: "Almonds/Walnuts", weight: 15, calories: 100, protein: 2, carbs: 10, fats: 4 }
@@ -14,6 +15,7 @@ export const foodDatabase = [
         id: 2, name: "Vegetable Poha Meal", subType: "Combo Meal", region: "North Indian",
         ediblePortion: 100, type: "veg", calories: 350, protein: 8, carbs: 60, fats: 10,
         category: "Breakfast", servingSize: "1 Plate", isCooked: true, isCombo: true,
+        tags: ["Vegetarian", "Light", "Gluten Free"],
         composition: [
             { name: "Vegetable Poha", weight: 200, calories: 300, protein: 6, carbs: 55, fats: 8 },
             { name: "Bhujia/Sev", weight: 10, calories: 50, protein: 2, carbs: 5, fats: 2 }
@@ -23,6 +25,7 @@ export const foodDatabase = [
         id: 3, name: "Idli Sambar Meal", subType: "Combo Meal", region: "South Indian",
         ediblePortion: 100, type: "veg", calories: 300, protein: 10, carbs: 55, fats: 4,
         category: "Breakfast", servingSize: "1 Plate", isCooked: true, isCombo: true,
+        tags: ["Vegetarian", "Fermented", "Gut Health", "Gluten Free"],
         composition: [
             { name: "Idli (3 pcs)", weight: 150, calories: 180, protein: 6, carbs: 36, fats: 0 },
             { name: "Sambar", weight: 150, calories: 80, protein: 3, carbs: 15, fats: 1 },
@@ -43,6 +46,7 @@ export const foodDatabase = [
         id: 6, name: "Classic Scrambled Eggs", subType: "Combo Meal", region: "International",
         ediblePortion: 100, type: "non-veg", calories: 350, protein: 20, carbs: 25, fats: 18,
         category: "Breakfast", servingSize: "1 Plate", isCooked: true, isCombo: true,
+        tags: ["High Protein", "Low Carb", "Keto Friendly"],
         composition: [
             { name: "Scrambled Eggs (2)", weight: 120, calories: 180, protein: 14, carbs: 2, fats: 14 },
             { name: "Buttered Toast", weight: 50, calories: 150, protein: 4, carbs: 20, fats: 4 },
@@ -134,6 +138,7 @@ export const foodDatabase = [
         id: 201, name: "Chicken Curry Rice Bowl", subType: "Combo Meal", region: "Indian",
         ediblePortion: 100, type: "non-veg", calories: 742, protein: 43, carbs: 75, fats: 14.5,
         category: "Lunch", servingSize: "1 Meal", isCooked: true, isCombo: true,
+        tags: ["High Protein", "Spicy", "Fiber Rich"],
         composition: [
             { name: "Chicken Curry (Skinless Breast)", weight: 150, calories: 250, protein: 35, carbs: 5, fats: 8 },
             { name: "Brown Rice (Cooked)", weight: 180, calories: 210, protein: 5, carbs: 44, fats: 2 },
@@ -202,6 +207,7 @@ export const foodDatabase = [
         id: 2003, name: "Curd Rice & Pickle", subType: "Combo Meal", region: "South Indian",
         ediblePortion: 100, type: "veg", calories: 350, protein: 10, carbs: 50, fats: 12,
         category: "Lunch", servingSize: "1 Bowl", isCooked: true, isCombo: true,
+        tags: ["Vegetarian", "Probiotic", "Cooling", "Gluten Free"],
         composition: [
             { name: "Curd Rice", weight: 250, calories: 300, protein: 10, carbs: 48, fats: 8 },
             { name: "Pickle/Podi", weight: 20, calories: 50, protein: 0, carbs: 2, fats: 4 }
@@ -414,4 +420,49 @@ const staples = [
     }
 ];
 
-foodDatabase.push(...staples);
+
+// --- EXPANDED REGIONAL ITEMS FOR STRICT FILTERING ---
+const regionalItems = [
+    // South Indian Lunch/Dinner
+    {
+        id: 6001, name: "Sambar Rice & Beans", subType: "Combo Meal", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 420, protein: 14, carbs: 75, fats: 6,
+        category: "Lunch", servingSize: "1 Bowl", isCooked: true, isCombo: true,
+        composition: [
+            { name: "Sambar Rice", weight: 250, calories: 350, protein: 10, carbs: 65, fats: 4 },
+            { name: "Beans Poriyal", weight: 100, calories: 70, protein: 4, carbs: 10, fats: 2 }
+        ]
+    },
+    {
+        id: 6002, name: "Chapati & Veg Kurma (South)", subType: "Combo Meal", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 450, protein: 12, carbs: 65, fats: 15,
+        category: "Dinner", servingSize: "1 Plate", isCooked: true, isCombo: true,
+        composition: [
+            { name: "Chapati (2)", weight: 80, calories: 240, protein: 8, carbs: 40, fats: 4 },
+            { name: "Veg Kurma", weight: 150, calories: 210, protein: 4, carbs: 25, fats: 11 }
+        ]
+    },
+    // North Indian Lunch
+    {
+        id: 6003, name: "Rajma Chawal Meal", subType: "Combo Meal", region: "North Indian",
+        ediblePortion: 100, type: "veg", calories: 480, protein: 16, carbs: 80, fats: 10,
+        category: "Lunch", servingSize: "1 Bowl", isCooked: true, isCombo: true,
+        composition: [
+            { name: "Steamed Rice", weight: 200, calories: 260, protein: 6, carbs: 56, fats: 1 },
+            { name: "Rajma Curry", weight: 180, calories: 220, protein: 10, carbs: 24, fats: 9 }
+        ]
+    },
+    // International Dinner
+    {
+        id: 6004, name: "Grilled Fish & Quinoa", subType: "Combo Meal", region: "International",
+        ediblePortion: 100, type: "non-veg", calories: 410, protein: 35, carbs: 40, fats: 10,
+        category: "Dinner", servingSize: "1 Plate", isCooked: true, isCombo: true,
+        composition: [
+            { name: "Grilled Fish", weight: 150, calories: 200, protein: 30, carbs: 0, fats: 8 },
+            { name: "Quinoa", weight: 150, calories: 180, protein: 5, carbs: 32, fats: 2 },
+            { name: "Steamed Veggies", weight: 100, calories: 30, protein: 0, carbs: 8, fats: 0 }
+        ]
+    }
+];
+
+foodDatabase.push(...regionalItems);

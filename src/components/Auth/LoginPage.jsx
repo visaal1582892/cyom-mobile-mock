@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Loader from '../UI/Loader';
+import Toast from '../UI/Toast';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -7,6 +9,8 @@ const LoginPage = () => {
     const [showOtp, setShowOtp] = useState(false);
     const [otp, setOtp] = useState('1234');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState(null);
 
     const handleSendOtp = () => {
         if (mobileNumber.length !== 10) {
@@ -14,9 +18,14 @@ const LoginPage = () => {
             return;
         }
         setError('');
-        setShowOtp(true);
-        // Simulate OTP sent
-        setTimeout(() => alert(`OTP Sent: ${otp}`), 500);
+        setLoading(true);
+
+        // Simulate API call
+        setTimeout(() => {
+            setLoading(false);
+            setShowOtp(true);
+            setToast({ message: `OTP Sent: ${otp}`, type: 'success' });
+        }, 1200);
     };
 
     const handleLogin = () => {
@@ -24,12 +33,18 @@ const LoginPage = () => {
             setError('Invalid OTP');
             return;
         }
-        // Redirect to Goal Selection instead of direct dashboard
-        navigate('/goal-selection');
+        // Redirect to Goal Selection
+        setLoading(true);
+        setTimeout(() => {
+            navigate('/goal-selection');
+        }, 1000);
     };
+
+    if (loading) return <Loader text={showOtp ? "Verifying..." : "Sending OTP..."} />;
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] flex flex-col items-center justify-center p-6 text-[#1F2933] font-sans relative overflow-hidden">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             {/* Background Decor */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-[#2E7D6B] rounded-full mix-blend-multiply filter blur-3xl opacity-20 translate-x-1/2 -translate-y-1/2 animate-blob"></div>
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#FFD166] rounded-full mix-blend-multiply filter blur-3xl opacity-20 -translate-x-1/2 translate-y-1/2 animate-blob animation-delay-2000"></div>
