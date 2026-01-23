@@ -282,14 +282,12 @@ const MealPlannerPage = () => {
             if (!item.isCooked) return false;
 
             // Strict Filter: Category must match active Slot
-            // The slot is passed as argument 'slot'
-            if (slot === 'breakfast' && item.category !== 'Breakfast') return false;
-            // For Lunch/Dinner, match strictly or allow Main Course?
-            // User said "strict". 
-            // So if slot is Dinner, item.category MUST be Dinner.
-            if (slot === 'lunch' && item.category !== 'Lunch') return false;
-            if (slot === 'dinner' && item.category !== 'Dinner') return false;
-            if (slot === 'snacks' && item.category !== 'Snacks') return false;
+            // Convert slot to lowercase for comparison
+            const activeSlotLower = slot.toLowerCase();
+            if (activeSlotLower === 'breakfast' && item.category !== 'Breakfast') return false;
+            if (activeSlotLower === 'lunch' && item.category !== 'Lunch') return false;
+            if (activeSlotLower === 'dinner' && item.category !== 'Dinner') return false;
+            if (activeSlotLower === 'snacks' && item.category !== 'Snacks') return false;
 
             // ... (rest of logic)
             // Filter by Region/Category if desired
@@ -356,6 +354,13 @@ const MealPlannerPage = () => {
 
             // Respect Diet Preference
             if (userData.dietPreference === 'Vegetarian' && candidate.type !== 'veg') return false;
+
+            // Strict Filter: Category must match active Slot
+            const activeSlotLower = slot.toLowerCase();
+            if (activeSlotLower === 'breakfast' && candidate.category !== 'Breakfast') return false;
+            if (activeSlotLower === 'lunch' && candidate.category !== 'Lunch') return false;
+            if (activeSlotLower === 'dinner' && candidate.category !== 'Dinner') return false;
+            if (activeSlotLower === 'snacks' && candidate.category !== 'Snacks') return false;
 
             // Basic Filter: Candidate must HAVE this macro
             // We want to find items that can providing this macro amount reasonable

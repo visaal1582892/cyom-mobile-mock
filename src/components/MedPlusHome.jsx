@@ -119,7 +119,7 @@ const MedPlusHome = () => {
                     className="bg-primary hover:bg-teal-700 transition-colors w-full p-4 rounded-lg text-white flex items-center justify-between shadow-md cursor-pointer"
                 >
                     <div>
-                        <div className="text-lg font-bold">Health and Wellness (CYOM)</div>
+                        <div className="text-lg font-bold">Nutrition and Wellness (CYOM)</div>
                         <div className="text-sm opacity-90">Track your meals and nutrition</div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
