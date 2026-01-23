@@ -542,6 +542,15 @@ const MealPlannerPage = () => {
                                 </div>
                                 <div className="p-1">
                                     <button
+                                        onClick={() => navigate('/profile')}
+                                        className="w-full text-left px-3 py-2 hover:bg-[#2E7D6B]/10 rounded-xl text-sm font-bold text-gray-600 hover:text-[#2E7D6B] transition-colors flex items-center gap-3"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        My Profile
+                                    </button>
+                                    <button
                                         onClick={() => navigate('/saved-plans')}
                                         className="w-full text-left px-3 py-2 hover:bg-[#2E7D6B]/10 rounded-xl text-sm font-bold text-gray-600 hover:text-[#2E7D6B] transition-colors flex items-center gap-3"
                                     >

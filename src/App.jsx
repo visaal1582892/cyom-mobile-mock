@@ -7,6 +7,7 @@ import GoalSelectionPage from './components/CYOM/GoalSelectionPage';
 import MealCreationPage from './components/CYOM/MealCreationPage';
 import MealPlannerPage from './components/CYOM/MealPlannerPage';
 import SavedPlansPage from './components/CYOM/SavedPlansPage';
+import UserProfilePage from './components/CYOM/UserProfilePage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/meal-creation" element={<MealCreationPage />} />
           <Route path="/meal-planner" element={<MealPlannerPage />} />
           <Route path="/saved-plans" element={<SavedPlansPage />} />
+          <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/dashboard" element={<WellnessTab />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
