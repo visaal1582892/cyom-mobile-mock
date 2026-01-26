@@ -32,7 +32,7 @@ const MealCreationPage = () => {
 
     const InputField = ({ label, name, value, type = "text", placeholder, suffix }) => (
         <div className="relative group">
-            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide ml-1">{label}</label>
+            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">{label}</label>
             <div className="relative">
                 <input
                     type={type}
@@ -40,7 +40,7 @@ const MealCreationPage = () => {
                     value={value}
                     onChange={handleChange}
                     placeholder={placeholder}
-                    className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
+                    className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
                 />
                 {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">{suffix}</span>}
             </div>
@@ -168,66 +168,51 @@ const MealCreationPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white/95 backdrop-blur-xl p-6 md:p-8 rounded-[32px] shadow-2xl border border-white/50 space-y-8 text-[#1F2933]">
+                    <div className="mt-[15%] bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[32px] shadow-2xl border border-white/50 space-y-4 text-[#1F2933]">
 
                         {/* Section: Body Metrics */}
-                        <div className="grid grid-cols-2 gap-5">
+                        <div className="grid grid-cols-2 gap-3">
                             <InputField label="Current Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" />
                             <InputField label="Current Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" />
                         </div>
 
-                        {/* Section: Activity */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide ml-1">Activity Level</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'].map((level) => (
-                                    <button
-                                        key={level}
-                                        onClick={() => setFormData({ ...formData, activityLevel: level })}
-                                        className={`py-3 px-2 text-xs font-bold rounded-xl border-2 transition-all duration-200 ${formData.activityLevel === level
-                                            ? 'bg-[#2E7D6B] text-white border-[#2E7D6B] shadow-lg shadow-[#2E7D6B]/20 transform -translate-y-0.5'
-                                            : 'bg-white text-gray-500 border-gray-100 hover:border-[#2E7D6B]/30 hover:bg-green-50'
-                                            }`}
+                        {/* Section: Activity & Targets */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="relative group">
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Activity Level</label>
+                                <div className="relative">
+                                    <select
+                                        name="activityLevel"
+                                        value={formData.activityLevel}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
                                     >
-                                        {level}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Section: Targets */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                            <InputField label="Target Weight Loss Per Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" />
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide ml-1">Protein Preference</label>
-                                <div className="flex bg-gray-50 rounded-2xl p-1.5 ring-1 ring-gray-100">
-                                    {['Moderate', 'High'].map((pref) => (
-                                        <button
-                                            key={pref}
-                                            onClick={() => setFormData({ ...formData, proteinPreference: pref })}
-                                            className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all duration-200 ${formData.proteinPreference === pref
-                                                ? 'bg-white text-[#2E7D6B] shadow-md'
-                                                : 'text-gray-400 hover:text-gray-600'
-                                                }`}
-                                        >
-                                            {pref}
-                                        </button>
-                                    ))}
+                                        {['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'].map(level => (
+                                            <option key={level} value={level}>{level}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
                                 </div>
                             </div>
+
+                            <InputField label="Tgt Wt Loss/Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" />
                         </div>
 
+
                         {/* Section: Preferences */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="relative group">
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide ml-1">Diet Preference</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Diet Preference</label>
                                 <div className="relative">
                                     <select
                                         name="dietPreference"
                                         value={formData.dietPreference}
                                         onChange={handleChange}
-                                        className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
+                                        className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
                                     >
                                         <option>Vegetarian</option>
                                         <option>Non-Vegetarian</option>
@@ -241,13 +226,13 @@ const MealCreationPage = () => {
                                 </div>
                             </div>
                             <div className="relative group">
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide ml-1">Cuisine Style</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Cuisine Style</label>
                                 <div className="relative">
                                     <select
                                         name="cuisineStyle"
                                         value={formData.cuisineStyle}
                                         onChange={handleChange}
-                                        className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
+                                        className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
                                     >
                                         <option>North Indian</option>
                                         <option>South Indian</option>
@@ -265,13 +250,13 @@ const MealCreationPage = () => {
 
                         {/* Section: Duration */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide ml-1">Plan Duration</label>
-                            <div className="flex gap-4">
+                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Plan Duration</label>
+                            <div className="flex gap-3">
                                 {['1 Day', '3 Days', '7 Days'].map((duration) => (
                                     <button
                                         key={duration}
                                         onClick={() => setFormData({ ...formData, planDuration: duration })}
-                                        className={`flex-1 py-4 rounded-2xl border-2 font-bold text-sm transition-all duration-200 ${formData.planDuration === duration
+                                        className={`flex-1 py-3 rounded-2xl border-2 font-bold text-sm transition-all duration-200 ${formData.planDuration === duration
                                             ? 'border-[#FFD166] bg-[#FFF8E1] text-gray-900 shadow-sm transform -translate-y-0.5'
                                             : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'
                                             }`}
@@ -283,13 +268,13 @@ const MealCreationPage = () => {
                         </div>
 
                         {/* Action Button */}
-                        <div className="pt-6">
+                        <div className="pt-2">
                             <button
                                 onClick={handleCreateMeal}
-                                className="w-full py-5 bg-[#2E7D6B] text-white rounded-2xl font-bold text-xl shadow-[#2E7D6B]/30 shadow-lg hover:bg-[#256a5b] transform hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-[#2E7D6B] text-white rounded-2xl font-bold text-lg shadow-[#2E7D6B]/30 shadow-lg hover:bg-[#256a5b] transform hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
                                 <span>Create Meal Plan</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                 </svg>
                             </button>

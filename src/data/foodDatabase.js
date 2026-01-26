@@ -1,5 +1,71 @@
 
 export const foodDatabase = [
+    // --- GENERIC RAW INGREDIENTS (FOR SWAPPING) ---
+    {
+        id: 9001, name: "White Rice (Raw)", subType: "Grain", region: "All",
+        calories: 360, protein: 7, carbs: 79, fats: 1, category: "Generic", isCooked: false
+    },
+    {
+        id: 9002, name: "Brown Rice (Raw)", subType: "Grain", region: "All",
+        calories: 360, protein: 8, carbs: 76, fats: 3, category: "Generic", isCooked: false
+    },
+    {
+        id: 9003, name: "Quinoa (Raw)", subType: "Grain", region: "All",
+        calories: 370, protein: 14, carbs: 64, fats: 6, category: "Generic", isCooked: false
+    },
+    {
+        id: 9004, name: "Oats (Raw)", subType: "Grain", region: "All",
+        calories: 389, protein: 17, carbs: 66, fats: 7, category: "Generic", isCooked: false
+    },
+    {
+        id: 9005, name: "Chicken Breast (Raw)", subType: "Protein", region: "All",
+        calories: 120, protein: 23, carbs: 0, fats: 2.5, category: "Generic", isCooked: false
+    },
+    {
+        id: 9006, name: "Turkey Breast (Raw)", subType: "Protein", region: "All",
+        calories: 110, protein: 24, carbs: 0, fats: 1, category: "Generic", isCooked: false
+    },
+    {
+        id: 9007, name: "Paneer (Raw)", subType: "Protein", region: "Indian",
+        calories: 265, protein: 18, carbs: 1, fats: 20, category: "Generic", isCooked: false
+    },
+    {
+        id: 9008, name: "Tofu (Raw)", subType: "Protein", region: "All",
+        calories: 144, protein: 16, carbs: 3, fats: 8, category: "Generic", isCooked: false
+    },
+    {
+        id: 9009, name: "Whole Egg (Raw)", subType: "Protein", region: "All",
+        calories: 143, protein: 13, carbs: 1, fats: 9, category: "Generic", isCooked: false
+    },
+    {
+        id: 9010, name: "Egg Whites (Raw)", subType: "Protein", region: "All",
+        calories: 52, protein: 11, carbs: 1, fats: 0, category: "Generic", isCooked: false
+    },
+    {
+        id: 9011, name: "Toor Dal (Raw)", subType: "Pulse", region: "Indian",
+        calories: 343, protein: 22, carbs: 63, fats: 1.5, category: "Generic", isCooked: false
+    },
+    {
+        id: 9012, name: "Moong Dal (Raw)", subType: "Pulse", region: "Indian",
+        calories: 348, protein: 24, carbs: 60, fats: 1.2, category: "Generic", isCooked: false
+    },
+    {
+        id: 9013, name: "Potato (Raw)", subType: "Vegetable", region: "All",
+        calories: 77, protein: 2, carbs: 17, fats: 0.1, category: "Generic", isCooked: false
+    },
+    {
+        id: 9014, name: "Sweet Potato (Raw)", subType: "Vegetable", region: "All",
+        calories: 86, protein: 1.6, carbs: 20, fats: 0.1, category: "Generic", isCooked: false
+    },
+    {
+        id: 9015, name: "Broccoli (Raw)", subType: "Vegetable", region: "All",
+        calories: 34, protein: 2.8, carbs: 7, fats: 0.4, category: "Generic", isCooked: false
+    },
+    {
+        id: 9016, name: "Spinach (Raw)", subType: "Vegetable", region: "All",
+        calories: 23, protein: 2.9, carbs: 3.6, fats: 0.4, category: "Generic", isCooked: false
+    },
+
     // --- BREAKFAST MEALS (LEGACY PRESERVED) ---
     {
         id: 1, name: "Oats Porridge Meal", subType: "Combo Meal", region: "All",
@@ -465,4 +531,6 @@ const regionalItems = [
     }
 ];
 
+foodDatabase.push(...dinnerItems);
+foodDatabase.push(...staples);
 foodDatabase.push(...regionalItems);

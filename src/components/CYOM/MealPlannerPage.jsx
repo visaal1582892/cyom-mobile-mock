@@ -1,1186 +1,742 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
 import Loader from '../UI/Loader';
 import Toast from '../UI/Toast';
-import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets, calculateMacroTargets } from '../../utils/calculations';
+import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets } from '../../utils/calculations';
 
-// Generic Modal (Reuse)
-const Modal = ({ title, onClose, children }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-hidden relative">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+// --- SUB-COMPONENTS ---
+
+// 1. Mini Donut Chart
+const MacroDonut = ({ p, c, f, size = 40 }) => {
+    const total = p + c + f || 1;
+    const pDeg = (p / total) * 360;
+    const cDeg = (c / total) * 360;
+    const fDeg = (f / total) * 360;
+
+    return (
+        <div className="relative rounded-full flex items-center justify-center font-bold text-[10px]" style={{ width: size, height: size, background: `conic-gradient(#4ADE80 0deg ${pDeg}deg, #60A5FA ${pDeg}deg ${pDeg + cDeg}deg, #FACC15 ${pDeg + cDeg}deg 360deg)` }}>
+            <div className="bg-white rounded-full flex items-center justify-center" style={{ width: size * 0.6, height: size * 0.6 }}></div>
+        </div>
+    );
+};
+
+// 2. Connected Macro Slider
+const MacroBalancer = ({ macros, totalCalories, onUpdate }) => {
+    const pCal = macros.protein * 4;
+    const cCal = macros.carbs * 4;
+    const fCal = macros.fats * 9;
+    const currentTotal = pCal + cCal + fCal || 1;
+
+    const pPerc = (pCal / currentTotal) * 100;
+    const cPerc = (cCal / currentTotal) * 100;
+    const fPerc = (fCal / currentTotal) * 100;
+
+    return (
+        <div className="space-y-2">
+            {/* Visual Bar */}
+            <div className="h-3 w-full rounded-full flex overflow-hidden shadow-inner bg-gray-100/50">
+                <div style={{ width: `${pPerc}%` }} className="bg-[#4ADE80] transition-all duration-300"></div>
+                <div style={{ width: `${cPerc}%` }} className="bg-[#60A5FA] transition-all duration-300"></div>
+                <div style={{ width: `${fPerc}%` }} className="bg-[#FACC15] transition-all duration-300"></div>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-                {children}
+
+            {/* Sliders / Inputs */}
+            <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
+                <div className='flex flex-col'>
+                    <span className="text-gray-400 font-bold uppercase text-[9px]">PROT</span>
+                    <span className="text-[#4ADE80] font-black">{macros.protein}g</span>
+                </div>
+                <div className='flex flex-col'>
+                    <span className="text-gray-400 font-bold uppercase text-[9px]">CARB</span>
+                    <span className="text-[#60A5FA] font-black">{macros.carbs}g</span>
+                </div>
+                <div className='flex flex-col'>
+                    <span className="text-gray-400 font-bold uppercase text-[9px]">FAT</span>
+                    <span className="text-[#FACC15] font-black">{macros.fats}g</span>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
+
+// --- MAIN PAGE ---
 
 const MealPlannerPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // --- STATE ---
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ bmr: 0, tdee: 0, targetCalories: 0, mealSplit: {} });
+    const [plan, setPlan] = useState({ 1: { breakfast: [], lunch: [], snacks: [], dinner: [] } });
+    const [preferences, setPreferences] = useState({ dietPreference: 'Vegetarian', cuisineStyle: 'All' });
+
+    // UI State
+    const [currentDay, setCurrentDay] = useState(1);
+    const [planDuration, setPlanDuration] = useState(1);
+    const [expandedCard, setExpandedCard] = useState(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    // Interaction State
-    const [searchModalOpen, setSearchModalOpen] = useState(false);
-    const [activeMealSlot, setActiveMealSlot] = useState(null);
-    const [expandedItemId, setExpandedItemId] = useState(null);
-    const [substitutionModal, setSubstitutionModal] = useState({ open: false, originalItem: null, candidates: [], slot: null });
-    const [swapSearchQuery, setSwapSearchQuery] = useState("");
+    // Toggle State for Ingredient Info (Key: "mealUuid_ingIndex")
+    const [visibleInfo, setVisibleInfo] = useState({});
 
-    // Save Modal State
-    const [saveModalOpen, setSaveModalOpen] = useState(false);
-    const [planName, setPlanName] = useState("");
-    const [toast, setToast] = useState(null); // { message, type }
+    const toggleInfo = (id) => {
+        setVisibleInfo(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
-    // Edit State
-    const [editingWeightId, setEditingWeightId] = useState(null); // For main item weight
-    const [tempWeight, setTempWeight] = useState("");
+    // Modal State
+    const [searchModal, setSearchModal] = useState({ open: false, slot: null });
 
-    // Multi-Day State
-    const [planDuration, setPlanDuration] = useState(1);
-    const [currentDay, setCurrentDay] = useState(1);
-    const [selectedTab, setSelectedTab] = useState('breakfast');
-
-    const [stats, setStats] = useState({ bmr: 0, tdee: 0, targetCalories: 0, mealSplit: {} });
-    // Plan State: { 1: { breakfast: [], ... }, 2: { ... } }
-    const [plan, setPlan] = useState({ 1: { breakfast: [], lunch: [], snacks: [], dinner: [] } });
-    const [loading, setLoading] = useState(true);
-
-    // Preferences State (Stored for filtering)
-    const [preferences, setPreferences] = useState({
-        dietPreference: 'Vegetarian', // Default
-        cuisineStyle: 'All'
+    // Swap Modal State
+    const [swapModal, setSwapModal] = useState({
+        open: false,
+        mode: null,
+        slot: null,
+        originalItem: null,
+        originalIndex: null,
+        candidates: []
     });
 
+    // Save Modal
+    const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [planName, setPlanName] = useState("");
+
+    const [searchValue, setSearchValue] = useState("");
+    const [toast, setToast] = useState(null);
+
+    // Helpers
+    const parseServingWeight = (item) => {
+        if (item.composition && item.composition.length > 0) return item.composition.reduce((a, b) => a + (b.weight || 0), 0);
+        const match = item.servingSize?.match(/\((\d+)\s*(?:g|ml)\)/i);
+        return match ? parseInt(match[1]) : 100;
+    };
+
+    // --- INITIALIZATION ---
     useEffect(() => {
         if (location.state) {
-            // Check if loading a saved plan
             if (location.state.savedPlanData) {
                 const saved = location.state.savedPlanData;
-                setStats(saved.stats);
-                setPlan(saved.plan);
-                setPlanDuration(parseInt(saved.duration) || 1);
-                // Restore preferences if available in saved plan logic
-                if (saved.stats && saved.stats.preferences) {
-                    setPreferences(saved.stats.preferences);
-                }
-                setLoading(false);
-                return;
+                setStats(saved.stats); setPlan(saved.plan); setPlanDuration(parseInt(saved.duration) || 1);
+                setPreferences(saved.stats.preferences || {});
+                setPlanName(saved.name || "");
+            } else {
+                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, planDuration: d, dietPreference, cuisineStyle } = location.state;
+                const bmr = calculateBMR(currentWeight, currentHeight, userData.age, userData.gender);
+                const tdee = calculateTDEE(bmr, activityLevel);
+                const target = calculateTargetCalories(tdee, targetWeightLoss, bmr);
+                const split = calculateMealTargets(target);
+                setStats({ bmr, tdee, targetCalories: target, mealSplit: split });
+                setPreferences({ dietPreference, cuisineStyle });
+                setPlanDuration(parseInt(d) || 1);
+                generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle);
             }
-
-            const { currentWeight, currentHeight, activityLevel, targetWeightLoss, planDuration: durationStr, dietPreference, cuisineStyle } = location.state;
-            const weight = parseFloat(currentWeight);
-            const height = parseFloat(currentHeight);
-            const loss = parseFloat(targetWeightLoss) || 0;
-
-            // Parse duration "7 Days" -> 7
-            const days = parseInt(durationStr) || 1;
-            setPlanDuration(days);
-
-            const bmr = calculateBMR(weight, height, userData.age, userData.gender);
-            const tdee = calculateTDEE(bmr, activityLevel);
-            const target = calculateTargetCalories(tdee, loss, bmr);
-            const split = calculateMealTargets(target);
-
-            setStats({ bmr, tdee, targetCalories: target, mealSplit: split, preferences: { dietPreference, cuisineStyle } });
-            setPreferences({ dietPreference, cuisineStyle });
-            generateMultiDayPlan(days, split, dietPreference, cuisineStyle);
             setLoading(false);
-        } else {
-            setLoading(false);
-        }
+        } else { setLoading(false); }
     }, [location.state]);
 
-    const handleLogout = () => navigate('/login');
+    const generateMultiDayPlan = (days, targets, diet, cuisine) => {
+        const newPlan = {};
+        for (let i = 1; i <= days; i++) {
+            newPlan[i] = { breakfast: [], lunch: [], snacks: [], dinner: [] };
+            ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+                let pool = foodDatabase.filter(f => f.isCooked && (diet === 'Vegetarian' ? f.type === 'veg' : true) && (slot === 'snacks' ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot)));
+                if (cuisine !== 'Mixed' && cuisine !== 'All') pool = pool.filter(f => f.region === cuisine || f.region === 'All' || f.region === 'International');
 
-    // Helper to get gram weight from serving string
-    const parseServingWeight = (item) => {
-        // Try to find (200g) or (150ml) pattern
-        const match = item.servingSize?.match(/\((\d+)\s*(?:g|ml)\)/i);
-        if (match) return parseInt(match[1]);
-
-        // If no parens, check if string starts with number and has g/ml, e.g. "100g"
-        const directMatch = item.servingSize?.match(/^(\d+)\s*(?:g|ml)/i);
-        if (directMatch) return parseInt(directMatch[1]);
-
-        // Fallback: Use composition sum if available
-        if (item.composition) {
-            const sum = item.composition.reduce((acc, c) => acc + (c.weight || 0), 0);
-            if (sum > 0) return sum;
+                if (pool.length > 0) {
+                    const item = pool[Math.floor(Math.random() * pool.length)];
+                    const instance = createItemInstance(item, targets[slot]);
+                    newPlan[i][slot].push(instance);
+                }
+            });
         }
-
-        // Final fallback
-        return 100;
+        setPlan(newPlan);
     };
 
-    const generateMultiDayPlan = (days, targets, dietPref, cuisine) => {
-        const fullPlan = {};
+    const createItemInstance = (baseItem, targetCals) => {
+        let baseCals = baseItem.calories;
+        if (baseItem.composition?.length) baseCals = baseItem.composition.reduce((a, b) => a + b.calories, 0) || baseCals;
 
-        for (let day = 1; day <= days; day++) {
-            fullPlan[day] = generateSingleDay(targets, dietPref, cuisine);
-        }
-        setPlan(fullPlan);
-    };
-
-    const generateSingleDay = (targets, dietPref, cuisine) => {
-        const dayPlan = { breakfast: [], lunch: [], snacks: [], dinner: [] };
-
-        // Helper to get items
-        // Allow International combos always to ensure variety
-        const getItems = (category, region, mustBeCombo = false) => foodDatabase.filter(item =>
-            item.isCooked &&
-            (dietPref === 'Vegetarian' ? item.type === 'veg' : true) &&
-            (cuisine === 'Mixed' || item.region === 'All' || item.region === cuisine || (mustBeCombo && item.region === 'International')) &&
-            (Array.isArray(category) ? category.includes(item.category) : item.category === category) &&
-            (mustBeCombo ? item.isCombo : !item.isCombo)
-        );
-
-        const pickSmart = (pool, targetCals) => {
-            if (!pool.length) return null;
-            const item = pool[Math.floor(Math.random() * pool.length)];
-            const ratio = targetCals / item.calories;
-            const baseWeight = parseServingWeight(item);
-            return createItemInstance(item, targetCals, Math.round(baseWeight * ratio));
-        };
-
-        // Breakfast
-        const bfCombos = getItems('Breakfast', cuisine, true);
-        if (bfCombos.length > 0) {
-            const combo = pickSmart(bfCombos, targets.breakfast);
-            if (combo) dayPlan.breakfast.push(combo);
-        } else {
-            const bf = pickSmart(getItems('Breakfast', 'All', false), targets.breakfast);
-            if (bf) dayPlan.breakfast.push(bf);
-        }
-
-        // Lunch
-        // Lunch: Strict "Lunch" only
-        const lCombos = getItems('Lunch', cuisine, true);
-        let lCombo = null;
-        if (lCombos.length > 0) {
-            lCombo = pickSmart(lCombos, targets.lunch);
-        }
-
-        if (lCombo) {
-            dayPlan.lunch.push(lCombo);
-        } else {
-            const lStaples = getItems(['Main Course', 'Breads'], cuisine, false).filter(i => i.subType.includes('Rice') || i.subType.includes('Bread'));
-            const lMains = getItems(['Main Course'], cuisine, false).filter(i => !i.subType.includes('Rice') && !i.subType.includes('Bread'));
-
-            const ls = pickSmart(lStaples, targets.lunch * 0.45); // Increase weight for staple
-            const lm = pickSmart(lMains, targets.lunch * 0.55);
-            if (ls && lm) {
-                dayPlan.lunch.push(ls, lm);
-            } else if (lMains.length > 0) {
-                // Fallback: Just one big main
-                const bigMain = pickSmart(lMains, targets.lunch);
-                if (bigMain) dayPlan.lunch.push(bigMain);
-            }
-        }
-
-        // Snacks
-        const sCombos = getItems('Snacks', cuisine, true);
-        let sCombo = null;
-        if (sCombos.length > 0) {
-            sCombo = pickSmart(sCombos, targets.snacks);
-        }
-
-        if (sCombo) {
-            dayPlan.snacks.push(sCombo);
-        } else {
-            const sn = pickSmart(getItems('Snacks', 'All', false), targets.snacks);
-            if (sn) dayPlan.snacks.push(sn);
-        }
-
-        // Dinner
-        // Dinner: Strict "Dinner" only
-        const dCombos = getItems('Dinner', cuisine, true);
-        let dCombo = null;
-        if (dCombos.length > 0) {
-            dCombo = pickSmart(dCombos, targets.dinner);
-        }
-
-        if (dCombo) {
-            dayPlan.dinner.push(dCombo);
-        } else {
-            // Fallback to Staples/Mains
-            const dStaples = getItems(['Main Course', 'Breads'], cuisine, false).filter(i => i.subType.includes('Rice') || i.subType.includes('Bread'));
-            const dMains = getItems(['Main Course'], cuisine, false).filter(i => !i.subType.includes('Rice') && !i.subType.includes('Bread'));
-
-            const ds = pickSmart(dStaples, targets.dinner * 0.45);
-            const dm = pickSmart(dMains, targets.dinner * 0.55);
-
-            if (ds && dm) {
-                dayPlan.dinner.push(ds, dm);
-            } else if (dMains.length > 0) {
-                const bigMain = pickSmart(dMains, targets.dinner);
-                if (bigMain) dayPlan.dinner.push(bigMain);
-            }
-        }
-
-        return dayPlan;
-    };
-
-    // Helper to create/recalculate an item instance
-    const createItemInstance = (baseItem, targetCals, targetWeight) => {
-        // Find ratio based on weight change or calorie change
-        // We calculate ratio based on the targetCalories primarily for nutritional scaling logic
-        // But weight is the physical property.
-
-        let ratio;
-        let finalWeight;
-        let finalCals;
-
-        if (targetWeight) {
-            // Weight driven (Editing weight)
-            const baseW = parseServingWeight(baseItem) || 100;
-            ratio = targetWeight / baseW;
-            finalWeight = targetWeight;
-            finalCals = Math.round(baseItem.calories * ratio);
-        } else {
-            // Calorie driven (scaling to target)
-            ratio = targetCals / baseItem.calories;
-            const baseW = parseServingWeight(baseItem) || 100;
-            finalWeight = Math.round(baseW * ratio);
-            finalCals = Math.round(targetCals); // Force exact target match
-        }
-
-        // Optimization: If targetCals is explicitly passed (not driven by weight calc), use it.
-        // The original sig was (baseItem, targetCals, targetWeight).
-        // If we want to ENFORCE targetCals, we should allow calculatedCalories to equal targetCals.
-        // Let's assume if targetCals is provided, that's the source of truth for energy.
-
-        // RE-CALCULATING to ensure consistency
-        // If we use 'targetCals' as absolute truth:
-        // ratio = targetCals / baseItem.calories
+        const ratio = targetCals / baseCals;
 
         return {
             ...baseItem,
-            uuid: baseItem.uuid || Math.random().toString(36),
-            calculatedCalories: finalCals,
-            calculatedWeight: finalWeight,
+            uuid: Math.random().toString(36),
+            calculatedCalories: Math.round(targetCals),
+            calculatedWeight: Math.round((parseServingWeight(baseItem) || 100) * ratio),
             macros: {
-                carbs: Math.round((baseItem.carbs || 0) * ratio),
                 protein: Math.round((baseItem.protein || 0) * ratio),
+                carbs: Math.round((baseItem.carbs || 0) * ratio),
                 fats: Math.round((baseItem.fats || 0) * ratio)
             },
             composition: baseItem.composition?.map(c => ({
                 ...c,
                 scaledWeight: Math.round((c.weight || 0) * ratio),
-                scaledCalories: Math.round((c.calories || 0) * ratio), // Use ratio for components
-                scaledCarbs: Math.round((c.carbs || 0) * ratio),
+                scaledCalories: Math.round((c.calories || 0) * ratio),
                 scaledProtein: Math.round((c.protein || 0) * ratio),
+                scaledCarbs: Math.round((c.carbs || 0) * ratio),
                 scaledFats: Math.round((c.fats || 0) * ratio)
             }))
         };
     };
 
-    const handleAdd = (item) => {
-        if (!activeMealSlot) return;
+    // --- SWAP LOGIC ---
+    const initiateMealSwap = (slot, originalItem) => {
+        const cands = foodDatabase.filter(f =>
+            f.id !== originalItem.id && f.isCooked &&
+            (preferences.dietPreference === 'Vegetarian' ? f.type === 'veg' : true) &&
+            f.category === originalItem.category
+        ).map(c => {
+            const ratio = originalItem.calculatedCalories / (c.calories || 1);
+            return createItemInstance(c, originalItem.calculatedCalories);
+        });
 
-        // --- SMART CALORIE MATCHING ---
-        // 1. Get Target for this slot
-        const slotTarget = stats.mealSplit[activeMealSlot] || 0;
-
-        // 2. Calculate Current Calories in this slot
-        const currentItems = plan[currentDay][activeMealSlot] || [];
-        const currentCals = currentItems.reduce((sum, i) => sum + (i.calculatedCalories || 0), 0);
-
-        // 3. Determine Remaining
-        const remaining = slotTarget - currentCals;
-
-        // 4. Decide on Target Calories for new item
-        // If remaining is substantial (e.g. > 50% of item's base cals), try to fill it.
-        // But don't create massive portions (cap at e.g. 200% of base serving or exact match).
-        let finalTargetCals = item.calories; // Default to base serving
-        const baseWeight = parseServingWeight(item);
-
-        if (remaining > 50) {
-            // If we have a gap, let's try to fill it
-            // Scaling limit: Don't scale beyond 3x base serving to avoid absurdity
-            const maxReasonableCals = item.calories * 3;
-
-            if (remaining <= maxReasonableCals) {
-                finalTargetCals = remaining;
-            } else {
-                finalTargetCals = maxReasonableCals; // Fill as much as reasonable
-            }
-        }
-        // If remaining is negative or tiny, we stick to base serving (or user can edit).
-
-        // 5. Calculate Weight based on Calorie Target
-        // Ratio = Target / BaseCals
-        const ratio = finalTargetCals / item.calories;
-        const targetWeight = baseWeight * ratio;
-
-        const newItem = createItemInstance(item, finalTargetCals, targetWeight);
-
-        setPlan(prev => ({
-            ...prev,
-            [currentDay]: {
-                ...prev[currentDay],
-                [activeMealSlot]: [...prev[currentDay][activeMealSlot], newItem]
-            }
-        }));
-        setSearchModalOpen(false);
-        setToast({ message: `${item.name} added! (Scaled to ${Math.round(finalTargetCals)} kcal)`, type: 'success' });
+        setSwapModal({ open: true, mode: 'MEAL', slot, originalItem, candidates: cands });
     };
 
-    const initiateSwap = (slot, originalItem) => {
-        const baseWeight = parseServingWeight(originalItem);
-
-        // Calculate macro percentages (g per 100g approx, or just ratio)
-        const getStats = (i) => {
-            const w = parseServingWeight(i);
-            // Safety check for 0 weight
-            if (w === 0) return { p: 0, c: 0, f: 0 };
-            return {
-                p: (i.protein / w) * 100,
-                c: (i.carbs / w) * 100,
-                f: (i.fats / w) * 100
-            };
-        };
-
-        const origStats = getStats(originalItem);
-
-        // Use current preferences
-        const { dietPreference, cuisineStyle } = preferences;
-
-        const candidates = foodDatabase.filter(item => {
-            if (item.id === originalItem.id) return false;
-            if (!item.isCooked) return false;
-
-            // Strict Filter: Category must match active Slot
-            // Convert slot to lowercase for comparison
-            const activeSlotLower = slot.toLowerCase();
-            if (activeSlotLower === 'breakfast' && item.category !== 'Breakfast') return false;
-            if (activeSlotLower === 'lunch' && item.category !== 'Lunch') return false;
-            if (activeSlotLower === 'dinner' && item.category !== 'Dinner') return false;
-            if (activeSlotLower === 'snacks' && item.category !== 'Snacks') return false;
-
-            // ... (rest of logic)
-            // Filter by Region/Category if desired
-            const isVeg = dietPreference === 'Vegetarian';
-            if (isVeg && item.type !== 'veg') return false;
-
-            // Cuisine Filter (Optional strictness)
-            // If user selected specific cuisine, prioritize or strictly filter?
-            // Let's go with Priority: We don't strictly hide others in Swap unless specified, 
-            // BUT for the request "strictly according to diet ... cuisine style", let's be stricter.
-            // If Cuisine is not "Mixed" or "All", and Item Region doesn't match and isn't "All" or "International", maybe penalize or hide?
-            // Let's hide if completely different region family (e.g. South Indian vs North Indian) BUT allow 'All'/'International'.
-            if (cuisineStyle !== 'Mixed' && cuisineStyle !== 'All') {
-                // Allow same region OR 'All' OR 'International'
-                const regionMatch = (item.region === cuisineStyle) || (item.region === 'All') || (item.region === 'International');
-                if (!regionMatch) return false;
-            }
-
-            const s = getStats(item);
-            const tolerance = 10; // Relaxed tolerance to 10% to show more relevant "similar" items
-
-            return Math.abs(s.p - origStats.p) < tolerance &&
-                Math.abs(s.c - origStats.c) < tolerance &&
-                Math.abs(s.f - origStats.f) < tolerance;
-        }).map(item => {
-            // We need to calculate what the stats WOULD be if we swapped.
-            // Standard smart swap scales by CALORIES matching.
-            const targetCals = originalItem.calculatedCalories;
-            const ratio = targetCals / item.calories;
+    const initiateIngredientSwap = (slot, mealItem, ingIndex) => {
+        const originalIng = mealItem.composition[ingIndex];
+        const cands = foodDatabase.filter(f =>
+            !f.isCooked &&
+            f.name !== originalIng.name &&
+            (
+                (originalIng.name.toLowerCase().includes("rice") && f.name.toLowerCase().includes("rice")) ||
+                (originalIng.name.toLowerCase().includes("rice") && f.name.toLowerCase().includes("quinoa")) ||
+                (originalIng.name.toLowerCase().includes("chicken") && f.name.toLowerCase().includes("chicken")) ||
+                (originalIng.name.toLowerCase().includes("chicken") && f.name.toLowerCase().includes("turkey")) ||
+                (originalIng.name.toLowerCase().includes("dal") && f.name.toLowerCase().includes("dal")) ||
+                (originalIng.name.toLowerCase().includes("egg") && f.name.toLowerCase().includes("egg")) ||
+                f.category === 'Generic'
+            )
+        ).slice(0, 10).map(c => {
+            const targetCals = originalIng.scaledCalories || 100;
+            const baseCals = c.calories;
+            const newWeight = Math.round((targetCals / (baseCals || 1)) * 100);
+            const ratio = newWeight / 100;
 
             return {
-                ...item,
-                scaledCalories: Math.round(targetCals),
-                scaledProtein: Math.round(item.protein * ratio),
-                scaledCarbs: Math.round(item.carbs * ratio),
-                scaledFats: Math.round(item.fats * ratio)
+                ...c,
+                scaledWeight: newWeight,
+                scaledCalories: Math.round(baseCals * ratio),
+                scaledProtein: Math.round(c.protein * ratio),
+                scaledCarbs: Math.round(c.carbs * ratio),
+                scaledFats: Math.round(c.fats * ratio)
             };
         });
 
-        setSwapSearchQuery("");
-        setSubstitutionModal({ open: true, originalItem, candidates, slot });
-    };
-
-
-
-    // ... (removeFood was already added in previous turn but initiateSwap replaces the block above it)
-
-    // [SKIPPING removeFood duplicate to avoid error, I will target the EXACT block of handleSmartSwap]
-    /* Wait, the previous view showed handleSmartSwap ending around line 272. 
-       I will replace handleSmartSwap completely. */
-
-    /* AND I will update the Modal UI further down (separate edit or multi-chunk). */
-
-    /* [SPLITTING THIS TOOL CALL INTO TWO CHUNKS IS BETTER] */
-
-    const removeFood = (slot, itemUuid) => {
-        setPlan(prev => ({
-            ...prev,
-            [currentDay]: {
-                ...prev[currentDay],
-                [slot]: prev[currentDay][slot].filter(i => i.uuid !== itemUuid)
-            }
-        }));
-    };
-
-    // --- MACRO SWAP Logic ---
-    const handleMacroClick = (slot, item, macroType) => {
-        if (!item.macros || item.macros[macroType] === undefined) return;
-
-        const targetValue = item.macros[macroType];
-
-        const candidates = foodDatabase.filter(candidate => {
-            if (candidate.id === item.id) return false;
-            // Strict match: Must be Cooked
-            if (!candidate.isCooked) return false;
-
-            // Respect Diet Preference
-            if (preferences.dietPreference === 'Vegetarian' && candidate.type !== 'veg') return false;
-
-            // Strict Filter: Category must match active Slot
-            const activeSlotLower = slot.toLowerCase();
-            if (activeSlotLower === 'breakfast' && candidate.category !== 'Breakfast') return false;
-            if (activeSlotLower === 'lunch' && candidate.category !== 'Lunch') return false;
-            if (activeSlotLower === 'dinner' && candidate.category !== 'Dinner') return false;
-            if (activeSlotLower === 'snacks' && candidate.category !== 'Snacks') return false;
-
-            // Basic Filter: Candidate must HAVE this macro
-            // We want to find items that can providing this macro amount reasonable
-            // Let's filter items where macro per 100g > 0
-            const cVal = candidate[macroType] || 0;
-            return cVal > 0;
-        }).map(candidate => {
-            // Calculate weight needed to match TARGET VALUE
-            const candidateMacroContent = candidate[macroType]; // e.g. 12g per ediblePortion(100g)
-            // If data is per serving, we need to handle that. 
-            // foodDatabase structure: "protein": 12, "ediblePortion": 100.
-            // So it's 12g per 100g.
-
-            // We need 'targetValue' grams of macro.
-            // Weight Needed = (targetValue / candidateMacroContent) * 100
-            if (candidateMacroContent <= 0) return null;
-
-            const weightNeeded = (targetValue / candidateMacroContent) * 100;
-            const ratio = weightNeeded / 100;
-
-            return {
-                ...candidate,
-                scaledWeight: Math.round(weightNeeded),
-                scaledCalories: Math.round(candidate.calories * ratio),
-                scaledProtein: Math.round(candidate.protein * ratio),
-                scaledCarbs: Math.round(candidate.carbs * ratio),
-                scaledFats: Math.round(candidate.fats * ratio),
-                matchMacro: Math.round(candidate[macroType] * ratio), // Should equal targetValue
-                ratio: ratio
-            };
-        }).filter(c => c !== null);
-
-        setSubstitutionModal({
-            open: true,
-            originalItem: item,
-            candidates: candidates,
-            slot,
-            swapType: 'macro',
-            targetMacro: macroType
-        });
-        setSwapSearchQuery("");
-    };
-
-    const confirmSwap = (newItem) => {
-        const { slot, originalItem, swapType } = substitutionModal;
-        if (!slot || !originalItem) return;
-
-        let finalItem;
-        if (swapType === 'macro') {
-            // Macro swap logic (already calculates precise needs)
-            finalItem = createItemInstance(newItem, newItem.scaledCalories, newItem.scaledWeight);
-        } else {
-            // --- SMART SWAP PRECISION ---
-            // 1. Calculate the Gap
-            const slotTarget = stats.mealSplit[slot] || 0;
-            const currentItems = plan[currentDay][slot] || [];
-
-            // Sum of OTHERS (excluding the one being swapped out)
-            const otherItemsCals = currentItems
-                .filter(i => i.uuid !== originalItem.uuid)
-                .reduce((sum, i) => sum + (i.calculatedCalories || 0), 0);
-
-            const remainingNeeded = slotTarget - otherItemsCals;
-
-            let targetCals = originalItem.calculatedCalories; // Fallback
-
-            // 2. Determine ideal target
-            // If remaining needed is reasonable (positive and not crazy huge), aim for it.
-            if (remainingNeeded > 50 && remainingNeeded < (originalItem.calculatedCalories * 3)) {
-                targetCals = remainingNeeded;
-            } else {
-                // If the gap is weird (negative or huge), stick to original item's cals
-                // effectively replacing "like for like" energy-wise.
-                targetCals = originalItem.calculatedCalories;
-            }
-
-            // 3. Create Instance
-            // explicit weight not passed = force calorie match
-            finalItem = createItemInstance(newItem, targetCals, null);
-        }
-
-        setPlan(prev => ({
-            ...prev,
-            [currentDay]: {
-                ...prev[currentDay],
-                [slot]: prev[currentDay][slot].map(i => i.uuid === originalItem.uuid ? finalItem : i)
-            }
-        }));
-
-        setSubstitutionModal({ open: false, originalItem: null, candidates: [], slot: null, swapType: null });
-        setToast({ message: "Item swapped! Calorie target aligned.", type: 'success' });
-    };
-
-    // --- EDIT HANDLERS ---
-
-    // 1. Edit Total Item Weight
-    const startEditingWeight = (e, item) => {
-        e.stopPropagation();
-        setEditingWeightId(item.uuid);
-        setTempWeight(item.calculatedWeight);
-    };
-
-    const saveWeight = (slot, itemUuid) => {
-        const newWeight = parseInt(tempWeight);
-        if (isNaN(newWeight) || newWeight <= 0) {
-            setEditingWeightId(null);
+        if (cands.length === 0) {
+            setToast({ msg: "No suitable alternatives found.", type: "error" });
             return;
         }
 
-        setPlan(prev => ({
-            ...prev,
-            [currentDay]: {
-                ...prev[currentDay],
-                [slot]: prev[currentDay][slot].map(item => {
-                    if (item.uuid === itemUuid) {
-                        // Recalculate everything based on new weight
-                        const ratio = newWeight / item.calculatedWeight; // Ratio of change
-
-                        return {
-                            ...item,
-                            calculatedCalories: Math.round(item.calculatedCalories * ratio),
-                            calculatedWeight: newWeight,
-                            macros: {
-                                carbs: Math.round(item.macros.carbs * ratio),
-                                protein: Math.round(item.macros.protein * ratio),
-                                fats: Math.round(item.macros.fats * ratio)
-                            },
-                            composition: item.composition?.map(c => ({
-                                ...c,
-                                scaledWeight: Math.round(c.scaledWeight * ratio),
-                                scaledCarbs: Math.round(c.scaledCarbs * ratio),
-                                scaledProtein: Math.round(c.scaledProtein * ratio),
-                                scaledFats: Math.round(c.scaledFats * ratio)
-                            }))
-                        };
-                    }
-                    return item;
-                })
-            }
-        }));
-        setEditingWeightId(null);
+        setSwapModal({ open: true, mode: 'INGREDIENT', slot, originalItem: mealItem, originalIndex: ingIndex, candidates: cands });
     };
 
-    // 2. Edit Ingredient Weight
-    const handleIngredientChange = (slot, itemUuid, ingredientIdx, newIngWeight) => {
-        let weight = 0;
+    const confirmSwap = (candidate) => {
+        const { slot, originalItem, mode, originalIndex } = swapModal;
 
-        // LIMIT: Prevent large values (> 999g)
-        if (newIngWeight.length > 3) return;
+        if (mode === 'MEAL') {
+            setPlan(prev => ({
+                ...prev,
+                [currentDay]: {
+                    ...prev[currentDay],
+                    [slot]: prev[currentDay][slot].map(i => i.uuid === originalItem.uuid ? candidate : i)
+                }
+            }));
+        } else {
+            const newItem = { ...originalItem };
+            const newComp = [...newItem.composition];
+            newComp[originalIndex] = { ...candidate, name: candidate.name };
 
-        if (newIngWeight !== "") {
-            weight = parseInt(newIngWeight);
-            if (isNaN(weight) || weight < 0) return;
+            const totalCals = newComp.reduce((a, b) => a + (b.scaledCalories || 0), 0);
+            const totalP = newComp.reduce((a, b) => a + (b.scaledProtein || 0), 0);
+            const totalC = newComp.reduce((a, b) => a + (b.scaledCarbs || 0), 0);
+            const totalF = newComp.reduce((a, b) => a + (b.scaledFats || 0), 0);
+            const totalW = newComp.reduce((a, b) => a + (b.scaledWeight || 0), 0);
+
+            newItem.composition = newComp;
+            newItem.calculatedCalories = totalCals;
+            newItem.calculatedWeight = totalW;
+            newItem.macros = { protein: totalP, carbs: totalC, fats: totalF };
+
+            setPlan(prev => ({
+                ...prev,
+                [currentDay]: {
+                    ...prev[currentDay],
+                    [slot]: prev[currentDay][slot].map(i => i.uuid === originalItem.uuid ? newItem : i)
+                }
+            }));
         }
 
-        // LIMIT: Max weight explicitly (redundant with length check but safer)
-        if (weight > 999) return;
+        setSwapModal({ open: false, mode: null, slot: null, originalItem: null, candidates: [] });
+        setToast({ msg: `${mode === 'MEAL' ? 'Meal' : 'Ingredient'} swapped!`, type: "success" });
+    };
+
+    // --- INLINE EDIT (Smart Balancing) ---
+    const handleIngredientWeightChange = (slot, itemUuid, idx, newVal) => {
+        let weight = parseInt(newVal);
+        if (isNaN(weight) || weight < 0) weight = 0;
+        if (weight > 2000) return;
 
         setPlan(prev => ({
             ...prev,
             [currentDay]: {
                 ...prev[currentDay],
                 [slot]: prev[currentDay][slot].map(item => {
-                    if (item.uuid === itemUuid) {
-                        const newComposition = [...item.composition];
-                        const ing = newComposition[ingredientIdx];
+                    if (item.uuid !== itemUuid) return item;
+                    const targetTotalCals = item.calculatedCalories;
+                    const comp = [...item.composition];
+                    const editedIng = comp[idx];
+                    const oldWeight = editedIng.scaledWeight || 1;
+                    const oldCals = editedIng.scaledCalories || 0;
 
-                        // Robust Calc: Use BASE weight (ing.weight) to calculate ratio
-                        // This prevents cumulative rounding errors and DivZero issues
-                        const baseWeight = ing.weight || 1;
-                        const ratio = weight / baseWeight;
+                    const calPerGram = oldWeight > 0 ? oldCals / oldWeight : 0;
+                    const newCals_edited = Math.round(weight * calPerGram);
 
-                        // Update this ingredient
-                        newComposition[ingredientIdx] = {
-                            ...ing,
-                            scaledWeight: weight,
-                            // Use base values (calories/macros) for scaling
-                            scaledCalories: Math.round((ing.calories || 0) * ratio),
-                            scaledCarbs: Math.round((ing.carbs || 0) * ratio),
-                            scaledProtein: Math.round((ing.protein || 0) * ratio),
-                            scaledFats: Math.round((ing.fats || 0) * ratio)
-                        };
+                    let remainingBudget = targetTotalCals - newCals_edited;
+                    if (remainingBudget < 0) remainingBudget = 0;
 
-                        // Recalculate Meal Totals based on new composition
-                        const newTotalWeight = newComposition.reduce((sum, c) => sum + (c.scaledWeight || 0), 0);
-                        const totalCarbs = newComposition.reduce((sum, c) => sum + (c.scaledCarbs || 0), 0);
-                        const totalProtein = newComposition.reduce((sum, c) => sum + (c.scaledProtein || 0), 0);
-                        const totalFats = newComposition.reduce((sum, c) => sum + (c.scaledFats || 0), 0);
+                    const weightRatio = oldWeight > 0 ? weight / oldWeight : 0;
+                    comp[idx] = {
+                        ...editedIng,
+                        scaledWeight: weight,
+                        scaledCalories: newCals_edited,
+                        scaledProtein: Math.round((editedIng.scaledProtein || 0) * weightRatio),
+                        scaledCarbs: Math.round((editedIng.scaledCarbs || 0) * weightRatio),
+                        scaledFats: Math.round((editedIng.scaledFats || 0) * weightRatio)
+                    };
 
-                        // Sum scaled calories directly for better accuracy
-                        const totalCals = newComposition.reduce((sum, c) => sum + (c.scaledCalories || 0), 0);
+                    const otherIndices = comp.map((_, i) => i).filter(i => i !== idx);
+                    const currentOtherTotalCals = otherIndices.reduce((sum, i) => sum + (comp[i].scaledCalories || 0), 0);
 
-                        return {
-                            ...item,
-                            calculatedWeight: newTotalWeight,
-                            calculatedCalories: Math.round(totalCals),
-                            macros: {
-                                carbs: totalCarbs,
-                                protein: totalProtein,
-                                fats: totalFats
-                            },
-                            composition: newComposition
-                        };
+                    if (otherIndices.length > 0) {
+                        otherIndices.forEach(i => {
+                            const ing = comp[i];
+                            const ingCal = ing.scaledCalories || 0;
+                            const ingWeight = ing.scaledWeight || 1;
+
+                            let newAllocatedCals = 0;
+                            if (currentOtherTotalCals > 0) {
+                                const prop = ingCal / currentOtherTotalCals;
+                                newAllocatedCals = remainingBudget * prop;
+                            } else {
+                                newAllocatedCals = 0;
+                            }
+                            const ingRatio = ingCal > 0 ? newAllocatedCals / ingCal : 0;
+                            const newWt = Math.round(ingWeight * ingRatio);
+
+                            comp[i] = {
+                                ...ing,
+                                scaledWeight: newWt,
+                                scaledCalories: Math.round(newAllocatedCals),
+                                scaledProtein: Math.round((ing.scaledProtein || 0) * ingRatio),
+                                scaledCarbs: Math.round((ing.scaledCarbs || 0) * ingRatio),
+                                scaledFats: Math.round((ing.scaledFats || 0) * ingRatio)
+                            };
+                        });
                     }
-                    return item;
+
+                    const finalTotalCals = comp.reduce((a, b) => a + (b.scaledCalories || 0), 0);
+                    const finalTotalW = comp.reduce((a, b) => a + (b.scaledWeight || 0), 0);
+                    const finalP = comp.reduce((a, b) => a + (b.scaledProtein || 0), 0);
+                    const finalC = comp.reduce((a, b) => a + (b.scaledCarbs || 0), 0);
+                    const finalF = comp.reduce((a, b) => a + (b.scaledFats || 0), 0);
+
+                    return {
+                        ...item,
+                        calculatedCalories: finalTotalCals,
+                        calculatedWeight: finalTotalW,
+                        macros: { protein: finalP, carbs: finalC, fats: finalF },
+                        composition: comp
+                    };
                 })
             }
         }));
     };
 
-    // --- SAVE PLAN ---
     const handleSavePlan = () => {
-        if (!planName.trim()) return;
-
-        const newPlan = {
+        if (!planName.trim()) {
+            setToast({ msg: "Please verify plan name", type: "error" });
+            return;
+        }
+        const planData = {
             id: Date.now(),
             name: planName,
-            duration: `${planDuration} Day${planDuration > 1 ? 's' : ''}`,
-            avgCalories: stats.targetCalories,
-            createdAt: new Date().toLocaleDateString(),
-            stats: stats,
-            plan: plan
+            createdAt: new Date().toISOString(),
+            stats: { ...stats, preferences },
+            plan: plan,
+            duration: planDuration
         };
-
-        // Push to local storage
-        const existing = JSON.parse(localStorage.getItem('savedPlans') || '[]');
-        existing.push(newPlan);
-        localStorage.setItem('savedPlans', JSON.stringify(existing));
-
+        const existing = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
+        localStorage.setItem('cyom_saved_plans', JSON.stringify([...existing, planData]));
         setSaveModalOpen(false);
-        setPlanName("");
-        setSaveModalOpen(false);
-        setPlanName("");
-        setToast({ message: "Plan Saved Successfully!", type: 'success' });
+        setToast({ msg: "Plan saved successfully!", type: "success" });
     };
 
-    if (loading) return <Loader text="Generating your personalized plan..." />;
+    const handleLogout = () => {
+        navigate('/');
+    };
+
+    const calculateDailyTotal = () => {
+        const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
+        if (!plan[currentDay]) return 0;
+        return slots.reduce((total, slot) => {
+            return total + (plan[currentDay][slot]?.reduce((acc, i) => acc + i.calculatedCalories, 0) || 0);
+        }, 0);
+    };
+
+    const dailyTotalCals = calculateDailyTotal();
+
+    // --- RENDER ---
+    const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white" >
+            {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+            {/* Background Decor */}
             <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
 
-            {/* SAVE MODAL */}
+            {/* --- HEADER --- */}
+            <div className="pt-6 px-4 flex justify-between items-center relative z-20">
+                <div className="flex items-center gap-4">
+                    {/* BACK BUTTON */}
+                    <button onClick={() => navigate('/meal-creation')} className="rounded-full hover:bg-white/20 transition-all active:scale-95 group">
+                        <svg className="w-8 h-8 text-white group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+
+                    <div className="font-bold text-lg flex items-center ">
+                        MEAL <span className="text-green-100 text-xs ml-1 opacity-80">Planner</span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {/* Profile Dropdown */}
+                    <div className="relative">
+                        <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold backdrop-blur-md shadow-lg hover:border-white transition-all overflow-hidden p-0.5">
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold rounded-full text-xs">
+                                IMG
+                            </div>
+                        </button>
+                        {isProfileOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                                <div className="absolute top-12 right-0 w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl py-2 z-50 text-gray-800 border border-white/50 animate-slide-down">
+                                    <div className="px-4 py-3 border-b border-gray-100">
+                                        <div className="font-bold text-sm text-[#2E7D6B]">{userData.name}</div>
+                                        <div className="text-[10px] text-gray-500">Premium Member</div>
+                                    </div>
+                                    <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2.5 hover:bg-[#2E7D6B]/5 text-sm text-gray-600 flex items-center gap-3 transition-colors">
+                                        <span>👤</span> My Profile
+                                    </button>
+                                    <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-2.5 hover:bg-[#2E7D6B]/5 text-sm text-gray-600 flex items-center gap-3 transition-colors">
+                                        <span>📂</span> Saved Plans
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm text-red-500 flex items-center gap-3 transition-colors">
+                                        <span>🚪</span> Logout
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* --- SUB-HEADER (Stats & Day Selection) --- */}
+            <div className="px-5 mt-6 flex justify-between items-center z-10 text-white">
+
+                {/* LEFT: Daily Goal */}
+                <div>
+                    <div className="text-[10px] uppercase font-bold text-green-100 tracking-wider mb-0.5 opacity-80">Daily Goal</div>
+                    <div className="text-xl font-bold leading-none flex items-baseline gap-1.5 font-mono tracking-tight">
+                        <span>{dailyTotalCals}</span>
+                        <span className="opacity-60 text-xs font-sans font-medium">/ {stats.targetCalories} kcal</span>
+                    </div>
+                </div>
+
+                {/* RIGHT: Enhanced Day Selector */}
+                <div className="relative group">
+                    {/* Glass Pill Container */}
+                    <div className="flex items-center gap-3 bg-white/20 pl-4 pr-3 py-2 rounded-2xl backdrop-blur-md border border-white/20 hover:bg-white/30 transition-all cursor-pointer shadow-lg shadow-black/5">
+                        <span className="text-sm font-bold tracking-wide">Day {currentDay}</span>
+                        <div className="bg-white/90 text-[#2E7D6B] rounded-xl p-1 shadow-sm">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                    </div>
+
+                    {/* Hidden Select Overlay for Functionality */}
+                    {planDuration > 1 && (
+                        <select
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            value={currentDay}
+                            onChange={e => setCurrentDay(parseInt(e.target.value))}
+                        >
+                            {Array.from({ length: planDuration }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={d} className="text-gray-800 font-medium">Jump to Day {d}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
+            </div>
+
+            {/* MAIN CONTENT - SCROLLABLE & COMPACT */}
+            <div className="flex-1 overflow-y-auto px-4 pt-6 pb-24 space-y-2 custom-scrollbar">
+                {slots.map(slot => {
+                    const items = plan[currentDay]?.[slot] || [];
+                    const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0);
+                    const target = stats.mealSplit[slot] || 0;
+                    const isExpanded = expandedCard === slot;
+
+                    const slotP = items.reduce((a, b) => a + b.macros.protein, 0);
+                    const slotC = items.reduce((a, b) => a + b.macros.carbs, 0);
+                    const slotF = items.reduce((a, b) => a + b.macros.fats, 0);
+
+                    // Accordion Card Styling (White Glass)
+                    return (
+                        <div key={slot} className={`bg-white/95 backdrop-blur-xl rounded-2xl shadow-sm transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-white/30 transform scale-[1.00]' : 'border border-white/30 hover:bg-white'}`}>
+                            {/* Accoridon Header - Compact */}
+                            <div onClick={() => setExpandedCard(isExpanded ? null : slot)} className="p-3 flex justify-between items-center cursor-pointer active:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-colors ${isExpanded ? 'bg-[#2E7D6B] text-white shadow-[#2E7D6B]/40' : 'bg-gray-100 text-gray-500'}`}>
+                                        {slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}
+                                    </div>
+                                    <div>
+                                        <div className="uppercase font-extrabold text-[9px] tracking-widest text-gray-400">{slot}</div>
+                                        <div className="text-sm font-bold mt-0 text-[#1F2933]">
+                                            <span className={totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}>{totalCals}</span> / {target} kcal
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {isExpanded ? (
+                                        <div className="text-[10px] font-bold text-gray-400">Hide Details</div>
+                                    ) : (
+                                        <MacroDonut p={slotP} c={slotC} f={slotF} size={30} />
+                                    )}
+                                    <div className={`p-1.5 rounded-full transition-all duration-300 ${isExpanded ? 'rotate-180 text-[#2E7D6B] bg-[#2E7D6B]/10' : 'text-gray-300'}`}>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* EXPANDED CONTENT - MORE COMPACT */}
+                            {isExpanded && (
+                                <div className="px-2 pb-2 animate-slide-down bg-gray-50/50">
+                                    {items.length > 0 ? items.map((item, iDx) => (
+                                        <div key={item.uuid} className="bg-white rounded-xl border border-gray-100 p-2 mb-2 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+                                            {/* MEAL HEADER ROW */}
+                                            <div className="flex justify-between items-center mb-2 border-b border-gray-50 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="font-bold text-sm text-gray-800">{item.name}</div>
+                                                    {/* MEAL SWAP BUTTON */}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); initiateMealSwap(slot, item); }}
+                                                        className="text-[#2E7D6B] bg-[#2E7D6B]/5 hover:bg-[#2E7D6B]/10 p-1 rounded transition-colors"
+                                                        title="Swap Entire Meal"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                    </button>
+                                                </div>
+                                                <button className="text-red-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                            </div>
+
+                                            {/* MACRO BALANCER - COMPACT */}
+                                            <div className="bg-gray-50/80 rounded-lg p-2 mb-2 border border-gray-100">
+                                                <MacroBalancer macros={item.macros} />
+                                            </div>
+
+                                            {/* INGREDIENTS LIST - COMPACT */}
+                                            <div className="space-y-1">
+                                                {item.composition?.map((comp, idx) => {
+                                                    const infoKey = `${item.uuid}_${idx}`;
+                                                    const showInfo = visibleInfo[infoKey]; // Check toggle state
+
+                                                    return (
+                                                        <div key={idx} className="flex flex-col border-b border-gray-50 pb-1 last:border-0 last:pb-0">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                    {/* INGREDIENT SWAP BUTTON */}
+                                                                    <button
+                                                                        onClick={() => initiateIngredientSwap(slot, item, idx)}
+                                                                        className="text-gray-400 hover:text-[#2E7D6B] hover:bg-gray-100 p-0.5 rounded transition-colors shrink-0"
+                                                                        title="Swap Ingredient"
+                                                                    >
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                                                    </button>
+
+                                                                    <span className="text-xs font-bold text-gray-700 truncate">{comp.name}</span>
+
+                                                                    {/* INFO TOGGLE BUTTON */}
+                                                                    <button
+                                                                        onClick={() => toggleInfo(infoKey)}
+                                                                        className={`p-0.5 rounded-full border transition-all shrink-0 ${showInfo ? 'bg-[#2E7D6B] text-white border-[#2E7D6B]' : 'bg-transparent text-gray-300 border-gray-200 hover:border-[#2E7D6B] hover:text-[#2E7D6B]'}`}
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* Weight Input */}
+                                                                <div className="flex items-center border border-gray-200 rounded-md focus-within:border-[#2E7D6B] focus-within:ring-1 focus-within:ring-[#2E7D6B]/20 w-16 overflow-hidden bg-gray-50 shrink-0">
+                                                                    <input
+                                                                        className="w-full text-right text-[10px] font-bold outline-none bg-transparent p-1 text-gray-800"
+                                                                        value={comp.scaledWeight}
+                                                                        onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
+                                                                    />
+                                                                    <span className="text-[9px] text-gray-400 pr-1 font-medium">g</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* DETAILED STATS PILL (CONDITIONAL) */}
+                                                            {showInfo && (
+                                                                <div className="flex justify-end pt-1 animate-fade-in">
+                                                                    <div className="text-[9px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 font-bold flex gap-2 shadow-sm items-center">
+                                                                        <span className="text-blue-500">P <span className="text-gray-400 font-normal">{comp.scaledProtein}</span></span>
+                                                                        <span className="text-blue-400">C <span className="text-gray-400 font-normal">{comp.scaledCarbs}</span></span>
+                                                                        <span className="text-yellow-500">F <span className="text-gray-400 font-normal">{comp.scaledFats}</span></span>
+                                                                        <div className="h-3 w-px bg-gray-200 mx-1"></div>
+                                                                        <span className="text-[#2E7D6B]">{comp.scaledCalories} kcal</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
+                                            <div className="text-gray-400 text-xs mb-3 italic">No meals added yet</div>
+                                            <button onClick={() => { setSearchModal({ open: true, slot }); setSearchValue("") }} className="text-xs bg-[#2E7D6B] text-white px-4 py-2 rounded-xl shadow-lg shadow-[#2E7D6B]/20 hover:bg-[#256a5b] transition-all font-bold">+ Add Food</button>
+                                        </div>
+                                    )}
+
+                                    {items.length > 0 && <button onClick={() => { setSearchModal({ open: true, slot }); setSearchValue("") }} className="w-full mt-2 py-2 border border-dashed border-[#2E7D6B]/30 text-[#2E7D6B] rounded-xl text-xs font-bold hover:bg-[#2E7D6B]/5 transition-all">Add More Items</button>}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* BOTTOM SAVE BAR */}
+            <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/50 z-30 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+                <button onClick={() => setSaveModalOpen(true)} className="w-full py-4 bg-[#2E7D6B] text-white rounded-2xl font-bold text-lg shadow-[#FFD166]/30 shadow-lg hover:bg-[#ffda85] hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    Save Meal Plan
+                </button>
+            </div>
+
+            {/* MODALS */}
+
+            {/* Search Modal */}
+            {
+                searchModal.open && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setSearchModal({ open: false, slot: null })}></div>
+                        <div className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto text-[#1F2933]">
+                            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-base capitalize pl-2">Add to {searchModal.slot}</h3>
+                                <button onClick={() => setSearchModal({ open: false })} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                            </div>
+                            <div className="p-4 bg-gray-50 border-b border-gray-100 pb-2">
+                                <input
+                                    className="w-full bg-white border border-gray-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-[#2E7D6B] shadow-sm"
+                                    placeholder="Search food database..."
+                                    autoFocus
+                                    value={searchValue}
+                                    onChange={e => setSearchValue(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
+                                {foodDatabase.filter(f => (!searchValue || f.name.toLowerCase().includes(searchValue.toLowerCase())) && (searchModal.slot === 'snacks' ? f.category === 'Snacks' : true))
+                                    .slice(0, 20).map(item => (
+                                        <button key={item.id} onClick={() => {
+                                            const instance = createItemInstance(item, stats.mealSplit[searchModal.slot] / 2 || 400);
+                                            setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [searchModal.slot]: [...(p[currentDay][searchModal.slot] || []), instance] } }));
+                                            setSearchModal({ open: false });
+                                        }} className="w-full text-left p-4 rounded-2xl border border-transparent hover:border-[#2E7D6B]/30 hover:bg-white transition-all flex justify-between items-center bg-white shadow-sm hover:shadow-md group">
+                                            <div>
+                                                <div className="font-bold text-gray-800 text-sm group-hover:text-[#2E7D6B] transition-colors">{item.name}</div>
+                                                <div className="text-[10px] text-gray-400 font-medium">{item.calories} kcal <span className="text-gray-300">•</span> {item.servingSize}</div>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-[#2E7D6B]/10 text-[#2E7D6B] flex items-center justify-center text-lg font-bold group-hover:bg-[#2E7D6B] group-hover:text-white transition-all">+</div>
+                                        </button>
+                                    ))
+                                }
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Swap Modal */}
+            {
+                swapModal.open && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#1F2933]">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSwapModal({ open: false })}></div>
+                        <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[70vh] animate-scale-up">
+                            <div className="p-5 bg-gray-50 border-b">
+                                <h3 className="font-bold text-center text-sm uppercase tracking-wide text-gray-500">Swap {swapModal.mode === 'MEAL' ? 'Meal' : 'Ingredient'}</h3>
+                                <p className="text-xs text-center font-bold text-[#1F2933] mt-1 bg-white inline-block px-3 py-1 rounded-full border border-gray-200 shadow-sm mx-auto flex items-center justify-center">
+                                    {swapModal.mode === 'MEAL' ? swapModal.originalItem?.name : swapModal.originalItem.composition[swapModal.originalIndex].name}
+                                </p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-3 bg-gray-50 space-y-2">
+                                {swapModal.candidates.length > 0 ? swapModal.candidates.map((c, i) => (
+                                    <button key={i} onClick={() => confirmSwap(c)} className="w-full text-left p-3 bg-white rounded-xl border border-gray-100 hover:border-[#2E7D6B] hover:shadow-md transition-all group">
+                                        <div className="font-bold text-sm text-gray-800 group-hover:text-[#2E7D6B] transition-colors">{c.name}</div>
+                                        <div className="flex gap-2 mt-2 text-[10px]">
+                                            <span className="font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{swapModal.mode === 'MEAL' ? (c.calculatedCalories || c.scaledCalories) : c.scaledCalories} kcal</span>
+                                            <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">P:{swapModal.mode === 'MEAL' ? c.macros.protein : c.scaledProtein}</span>
+                                            <span className="text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded">C:{swapModal.mode === 'MEAL' ? c.macros.carbs : c.scaledCarbs}</span>
+                                            <span className="text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">F:{swapModal.mode === 'MEAL' ? c.macros.fats : c.scaledFats}</span>
+                                        </div>
+                                    </button>
+                                )) : (
+                                    <div className="text-center py-8">
+                                        <div className="text-3xl mb-3 grayscale opacity-50">🥗</div>
+                                        <div className="text-gray-500 font-bold text-sm">No alternatives found</div>
+                                        <div className="text-gray-400 text-xs mt-1">Try searching for other items manually</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Save Modal */}
             {saveModalOpen && (
-                <Modal title="Save Meal Plan" onClose={() => setSaveModalOpen(false)}>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Plan Name</label>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in text-[#1F2933]">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSaveModalOpen(false)}></div>
+                    <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative z-10 transform transition-all animate-slide-up-mobile text-center">
+                        <div className="w-12 h-12 bg-[#FFD166] rounded-full flex items-center justify-center text-2xl mx-auto mb-4 text-white shadow-lg shadow-[#FFD166]/40">💾</div>
+                        <h3 className="text-xl font-bold mb-2">Save Meal Plan</h3>
+                        <p className="text-xs text-gray-400 mb-6 px-4">Give your plan a unique name to easily find it later in your library.</p>
+
+                        <div className="mb-6 text-left">
+                            <label className="text-[10px] font-bold text-gray-400 ml-2 mb-1 block uppercase tracking-wide">Plan Name</label>
                             <input
-                                className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-[#2E7D6B] font-bold text-gray-800"
-                                placeholder="e.g. My Weight Loss Week 1"
+                                className="w-full bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] p-3 rounded-2xl font-bold text-lg outline-none text-gray-800 placeholder-gray-300 transition-all text-center"
+                                placeholder="My Awesome Plan"
                                 value={planName}
                                 onChange={(e) => setPlanName(e.target.value)}
                                 autoFocus
                             />
                         </div>
-                        <button onClick={handleSavePlan} className="w-full py-3 bg-[#2E7D6B] text-white font-bold rounded-xl shadow-lg hover:bg-[#256a5b]">
-                            Save Plan
-                        </button>
-                    </div>
-                </Modal>
-            )}
 
-            {/* ADD FOOD MODAL */}
-            {searchModalOpen && (
-                <Modal title={`Add to ${activeMealSlot} (Day ${currentDay})`} onClose={() => setSearchModalOpen(false)}>
-                    <input
-                        className="w-full p-3 bg-gray-50 border rounded-xl mb-4 text-gray-800 outline-none focus:border-[#2E7D6B]"
-                        placeholder={`Search ${activeMealSlot} items...`}
-                        autoFocus
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                // Search Logic
-                            }
-                        }}
-                    />
-                    <div className="space-y-2">
-                        {(() => {
-                            const getFilteredItems = () => {
-                                // Base filter: Must be Cooked + Diet Pref
-                                let base = foodDatabase.filter(f =>
-                                    f.isCooked &&
-                                    (preferences.dietPreference === 'Vegetarian' ? f.type === 'veg' : true)
-                                );
-
-                                // STRICT CUISINE FILTER
-                                if (preferences.cuisineStyle !== 'Mixed' && preferences.cuisineStyle !== 'All') {
-                                    base = base.filter(f =>
-                                        f.region === preferences.cuisineStyle ||
-                                        f.region === 'All' ||
-                                        f.region === 'International'
-                                    );
-                                }
-
-                                // STRICT SLOT FILTERING
-                                switch (activeMealSlot) {
-                                    case 'breakfast':
-                                        return base.filter(i => i.category === 'Breakfast');
-                                    case 'lunch':
-                                        // Strict Lunch
-                                        return base.filter(i => i.category === 'Lunch');
-                                    case 'dinner':
-                                        // Strict Dinner
-                                        return base.filter(i => i.category === 'Dinner');
-                                    case 'snacks':
-                                        return base.filter(i => i.category === 'Snacks');
-                                    default:
-                                        return base;
-                                }
-                            };
-
-                            const items = getFilteredItems().slice(0, 20); // Limit to 20 for perf
-
-                            if (items.length === 0) {
-                                return <div className="text-center text-gray-400 py-4">No specific items found for this slot.</div>;
-                            }
-
-                            return items.map(item => {
-                                const w = parseServingWeight(item);
-                                const kcalPer100 = w > 0 ? Math.round((item.calories / w) * 100) : 0;
-                                return (
-                                    <button key={item.id} onClick={() => handleAdd(item)} className="w-full text-left p-3 hover:bg-green-50 rounded-xl text-gray-700 border border-transparent hover:border-green-100 transition-all">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <div>
-                                                <div className="font-bold">{item.name}</div>
-                                                <div className="text-[10px] text-gray-400">{item.subType || item.category}</div>
-                                            </div>
-                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 whitespace-nowrap">{kcalPer100} kcal/100g</span>
-                                        </div>
-                                        {/* TAGS DISPLAY */}
-                                        {item.tags && item.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                {item.tags.map(tag => (
-                                                    <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100">
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            });
-                        })()}
-                    </div>
-                </Modal>
-            )}
-
-
-
-            {/* SMART SWAP MODAL */}
-            {substitutionModal.open && (
-                <Modal title={substitutionModal.swapType === 'macro' ? `Smart Swap (Matches ${substitutionModal.targetMacro})` : "Smart Swap Matches"} onClose={() => setSubstitutionModal({ ...substitutionModal, open: false })}>
-                    <div className="space-y-3">
-                        {/* Search Input */}
-                        <div className="sticky top-0 bg-white z-10 pb-2">
-                            <input
-                                className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-[#2E7D6B] text-gray-800"
-                                placeholder="Search substitution..."
-                                value={swapSearchQuery}
-                                onChange={(e) => setSwapSearchQuery(e.target.value)}
-                                autoFocus
-                            />
+                        <div className="flex gap-3">
+                            <button onClick={() => setSaveModalOpen(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
+                            <button onClick={handleSavePlan} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all">Save Now</button>
                         </div>
-
-                        <div className="text-xs text-gray-400 mb-2">
-                            Similar nutritional profile to <span className="font-bold text-gray-600">{substitutionModal.originalItem?.name}</span>
-                        </div>
-
-                        {(() => {
-                            // FILTER AND RENDER
-                            const filtered = substitutionModal.candidates.filter(item =>
-                                item.name.toLowerCase().includes(swapSearchQuery.toLowerCase()) ||
-                                (item.subType && item.subType.toLowerCase().includes(swapSearchQuery.toLowerCase()))
-                            );
-
-                            if (filtered.length > 0) {
-                                return filtered.map(item => (
-                                    <button key={item.id} onClick={() => confirmSwap(item)} className="w-full flex justify-between items-center p-3 bg-gray-50 hover:bg-[#2E7D6B]/10 rounded-xl transition-colors border border-transparent hover:border-[#2E7D6B]/30 group">
-                                        <div className="text-left flex-1">
-                                            <div className="font-bold text-gray-800">{item.name}</div>
-                                            <div className="text-[10px] text-gray-400 mb-1">{item.subType}</div>
-
-                                            {/* TAGS IN SWAP */}
-                                            {item.tags && item.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {item.tags.slice(0, 3).map(tag => (
-                                                        <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Candidate Stats */}
-                                            <div className="flex gap-2 text-[10px] items-center">
-                                                <span className="font-bold text-gray-600">{item.scaledCalories || item.calories} kcal</span>
-                                                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                                <span className="text-blue-600">P: {item.scaledProtein || item.protein}g</span>
-                                                <span className="text-orange-600">C: {item.scaledCarbs || item.carbs}g</span>
-                                                <span className="text-yellow-600">F: {item.scaledFats || item.fats}g</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-xs font-bold text-[#2E7D6B] px-3 py-1 bg-white rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                            Select
-                                        </div>
-                                    </button>
-                                ));
-                            } else {
-                                return (
-                                    <div className="text-center py-8 text-gray-400">
-                                        <div className="text-2xl mb-2">🤔</div>
-                                        No matching foods found.
-                                    </div>
-                                );
-                            }
-                        })()}
-                    </div>
-                </Modal>
-            )}
-
-            {/* NAV */}
-            <div className="pt-6 px-6 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/meal-creation')} className="p-2 rounded-full hover:bg-white/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <div>
-                        <div className="text-xs opacity-80 font-medium text-green-100">Meal Planner</div>
-                        <div className="text-lg font-bold">{userData.name}</div>
                     </div>
                 </div>
-                <div className="flex gap-3 relative">
-                    <button
-                        onClick={() => setSaveModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 active:scale-95 rounded-full text-xs font-bold text-white transition-all backdrop-blur-md border border-white/20 shadow-sm"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                        </svg>
-                        <span>Save Plan</span>
-                    </button>
+            )}
 
-                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-12 h-12 rounded-full border-2 border-white/50 overflow-hidden relative active:scale-95 transition-transform">
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">IMG</div>
-                    </button>
-
-                    {/* PROFILE DROPDOWN */}
-                    {isProfileOpen && (
-                        <>
-                            <div className="fixed inset-0 z-40 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
-                            <div className="absolute top-14 right-0 w-56 bg-white rounded-2xl shadow-2xl py-2 z-50 text-gray-800 animate-fade-in-up origin-top-right ring-1 ring-black/5">
-                                <div className="px-4 py-3 border-b border-gray-100 mb-1 bg-gray-50/50">
-                                    <div className="font-bold text-sm text-[#1F2933]">{userData.name}</div>
-                                    <div className="text-xs text-[#2E7D6B] font-medium">Standard Plan</div>
-                                </div>
-                                <div className="p-1">
-                                    <button
-                                        onClick={() => navigate('/profile')}
-                                        className="w-full text-left px-3 py-2 hover:bg-[#2E7D6B]/10 rounded-xl text-sm font-bold text-gray-600 hover:text-[#2E7D6B] transition-colors flex items-center gap-3"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        My Profile
-                                    </button>
-                                    <button
-                                        onClick={() => navigate('/saved-plans')}
-                                        className="w-full text-left px-3 py-2 hover:bg-[#2E7D6B]/10 rounded-xl text-sm font-bold text-gray-600 hover:text-[#2E7D6B] transition-colors flex items-center gap-3"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                        </svg>
-                                        Saved Plans
-                                    </button>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="w-full text-left px-3 py-2 hover:bg-red-50 rounded-xl text-sm font-bold text-gray-600 hover:text-red-500 transition-colors flex items-center gap-3"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                        </svg>
-                                        Logout
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-
-
-            {/* CONTENT */}
-            <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4 pt-6">
-                <div className="w-full max-w-2xl mx-auto space-y-6">
-
-                    {/* STATS */}
-                    {/* STATS */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white p-4 rounded-3xl text-center shadow-lg border-2 border-white/20">
-                            <div className="text-xs text-gray-400 font-bold uppercase mb-1 tracking-wider">TDEE</div>
-                            <div className="text-xl font-black text-gray-800">{stats.tdee} <span className="text-xs font-bold text-gray-400">kcal</span></div>
-                        </div>
-                        <div className="bg-[#2E7D6B] p-4 rounded-3xl text-center shadow-xl border-2 border-[#A8E6CF] transform scale-105 z-10">
-                            <div className="text-xs text-[#A8E6CF] font-bold uppercase mb-1 tracking-wider">Target</div>
-                            {(() => {
-                                const currentPlan = plan[currentDay] || {};
-                                const totalCurrent = ['breakfast', 'lunch', 'snacks', 'dinner'].reduce((acc, slot) => {
-                                    return acc + (currentPlan[slot] || []).reduce((sAcc, i) => sAcc + i.calculatedCalories, 0);
-                                }, 0);
-                                return (
-                                    <div className="text-xl font-black text-white">
-                                        {totalCurrent} <span className="text-xs font-bold opacity-80">/ {stats.targetCalories}</span>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                        <div className="bg-white p-4 rounded-3xl text-center shadow-lg border-2 border-white/20">
-                            <div className="text-xs text-gray-400 font-bold uppercase mb-1 tracking-wider">BMR</div>
-                            <div className="text-xl font-black text-gray-600">{stats.bmr} <span className="text-xs font-bold text-gray-400">kcal</span></div>
-                        </div>
-                    </div>
-
-
-                    {/* CONTROLS AREA */}
-                    <div className="space-y-4">
-                        {/* Day & View Selector */}
-                        <div className="flex justify-between items-center bg-white/10 p-2 pl-4 rounded-2xl backdrop-blur-md border border-white/10">
-                            <div className="text-sm font-bold text-white/90 uppercase tracking-wider flex items-center gap-2">
-                                <span className="text-lg">🗓️</span> Day {currentDay} of {planDuration}
-                            </div>
-
-                            {planDuration > 1 && (
-                                <div className="relative">
-                                    <select
-                                        value={currentDay}
-                                        onChange={(e) => setCurrentDay(parseInt(e.target.value))}
-                                        className="appearance-none bg-[#2E7D6B] text-white pl-4 pr-10 py-2 rounded-xl font-bold outline-none cursor-pointer border-l border-white/10 hover:bg-[#266859] transition-colors"
-                                    >
-                                        {Array.from({ length: planDuration }, (_, i) => i + 1).map(day => (
-                                            <option key={day} value={day} className="bg-white text-gray-800">Day {day}</option>
-                                        ))}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
-                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* MEAL TABS */}
-                        <div className="flex bg-black/20 p-1.5 rounded-2xl backdrop-blur-md">
-                            {['breakfast', 'lunch', 'snacks', 'dinner'].map(slot => (
-                                <button
-                                    key={slot}
-                                    onClick={() => setSelectedTab(slot)}
-                                    className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wide transition-all duration-300 ${selectedTab === slot
-                                        ? 'bg-white text-[#2E7D6B] shadow-lg scale-[1.02]'
-                                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                                        }`}
-                                >
-                                    {slot === 'breakfast' ? 'Break-Fast' : slot === 'lunch' ? 'Lunch' : slot === 'snacks' ? 'Snack' : 'Dinner'}
-                                    <span className="hidden md:inline">{slot === 'breakfast' ? 'fast' : slot === 'snacks' ? 's' : ''}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* MEAL CARD - TAB VIEW */}
-                    {(() => {
-                        const slot = selectedTab;
-                        const target = stats.mealSplit[slot] || 0;
-                        const items = (plan[currentDay] && plan[currentDay][slot]) || [];
-                        const currentCals = items.reduce((acc, i) => acc + i.calculatedCalories, 0);
-
-                        return (
-                            <div key={slot} className="bg-white/95 text-[#1F2933] rounded-[32px] p-2 shadow-2xl animate-fade-in-up min-h-[50vh]">
-                                <div className="p-6 pb-2 flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-2xl font-bold capitalize text-gray-800">{slot}</h3>
-                                        <div className="text-sm text-[#2E7D6B] font-bold uppercase tracking-wide opacity-80 mt-1">{currentCals} / {target} kcal</div>
-                                    </div>
-                                    <button onClick={() => { setActiveMealSlot(slot); setSearchModalOpen(true); }} className="p-3 bg-[#2E7D6B] rounded-full text-white shadow-lg hover:bg-[#20574B] active:scale-95 transition-all">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <div className="p-4 space-y-4">
-                                    {items.length > 0 ? (
-                                        items.map((item) => (
-                                            <div key={item.uuid} className="rounded-3xl border border-gray-100 bg-gray-50/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-
-                                                {/* Item Header */}
-                                                <div
-                                                    onClick={() => setExpandedItemId(expandedItemId === item.uuid ? null : item.uuid)}
-                                                    className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white transition-colors"
-                                                >
-                                                    <div className="text-3xl bg-white p-2 rounded-2xl shadow-sm">🥣</div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-bold text-base text-gray-800 truncate">{item.name}</div>
-
-                                                        {/* Editable Total Weight */}
-                                                        <div className="flex items-center gap-2 mt-0.5" onClick={(e) => startEditingWeight(e, item)}>
-                                                            {editingWeightId === item.uuid ? (
-                                                                <input
-                                                                    autoFocus
-                                                                    type="text"
-                                                                    className="w-16 p-1 text-xs border border-[#2E7D6B] rounded bg-white text-gray-800 font-bold outline-none"
-                                                                    value={tempWeight}
-                                                                    onChange={(e) => setTempWeight(e.target.value)}
-                                                                    onBlur={() => saveWeight(slot, item.uuid)}
-                                                                    onKeyDown={(e) => e.key === 'Enter' && saveWeight(slot, item.uuid)}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                />
-                                                            ) : (
-                                                                <div className="text-xs text-gray-500 font-medium border-b border-dotted border-gray-300 hover:text-[#2E7D6B] hover:border-[#2E7D6B] transition-colors inline-block">
-                                                                    {item.calculatedWeight}g
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Macro Badges - Click to Smart Swap */}
-                                                        <div className="flex flex-wrap gap-2 mt-2">
-                                                            <button onClick={(e) => { e.stopPropagation(); handleMacroClick(slot, item, 'protein'); }} className="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors shadow-sm">
-                                                                P: {item.macros?.protein}g
-                                                            </button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleMacroClick(slot, item, 'carbs'); }} className="px-2 py-1 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-lg border border-orange-100 hover:bg-orange-100 transition-colors shadow-sm">
-                                                                C: {item.macros?.carbs}g
-                                                            </button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleMacroClick(slot, item, 'fats'); }} className="px-2 py-1 bg-yellow-50 text-yellow-600 text-[10px] font-bold rounded-lg border border-yellow-100 hover:bg-yellow-100 transition-colors shadow-sm">
-                                                                F: {item.macros?.fats}g
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="font-bold text-lg text-[#2E7D6B]">{item.calculatedCalories}</div>
-                                                        <div className="text-[10px] text-gray-400 font-bold uppercase">kcal</div>
-                                                    </div>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${expandedItemId === item.uuid ? 'rotate-180 text-[#2E7D6B]' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </div>
-
-                                                {/* Expanded Composition */}
-                                                {expandedItemId === item.uuid && (
-                                                    <div className="bg-white p-5 border-t border-gray-100 animate-slide-down">
-                                                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Ingredients & Composition</div>
-                                                        <div className="space-y-3">
-                                                            {item.composition && item.composition.map((comp, idx) => (
-                                                                <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-50 last:border-0">
-                                                                    <span className="text-gray-600 font-medium">{comp.name}</span>
-                                                                    <div className="flex items-center gap-4">
-                                                                        <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded-lg">
-                                                                            <input
-                                                                                type="text"
-                                                                                className="w-10 bg-transparent text-right font-bold text-gray-700 outline-none text-xs"
-                                                                                value={comp.scaledWeight === 0 && document.activeElement !== document.querySelector(`input[data-uuid="${item.uuid}-${idx}"]`) ? "" : comp.scaledWeight}
-                                                                                data-uuid={`${item.uuid}-${idx}`}
-                                                                                onChange={(e) => handleIngredientChange(slot, item.uuid, idx, e.target.value)}
-                                                                                onBlur={(e) => {
-                                                                                    // Prevent 0g on blur - reset to 1 if empty or 0
-                                                                                    if (!e.target.value || parseInt(e.target.value) === 0) {
-                                                                                        handleIngredientChange(slot, item.uuid, idx, "1");
-                                                                                    }
-                                                                                }}
-                                                                            />
-                                                                            <span className="text-[10px] text-gray-400">g</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Actions */}
-                                                        <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
-                                                            <button
-                                                                onClick={() => initiateSwap(slot, item)}
-                                                                className="flex-1 py-2 text-xs font-bold text-[#2E7D6B] bg-[#2E7D6B]/10 rounded-xl hover:bg-[#2E7D6B]/20 transition-colors flex justify-center items-center gap-2"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                                </svg>
-                                                                Swap Item
-                                                            </button>
-                                                            <button
-                                                                onClick={() => removeFood(slot, item.uuid)}
-                                                                className="px-4 py-2 text-xs font-bold text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center py-10 flex flex-col items-center justify-center opacity-60">
-                                            <div className="bg-gray-100 p-4 rounded-full mb-3">
-                                                <span className="text-4xl">🍽️</span>
-                                            </div>
-                                            <div className="font-bold text-gray-400">Your Plate is Empty</div>
-                                            <div className="text-xs text-gray-400 max-w-[150px] mt-1">Tap + to add food or Auto-Generate a plan</div>
-                                        </div>
-                                    )}
-
-                                    <button
-                                        onClick={() => { setActiveMealSlot(slot); setSearchModalOpen(true); }}
-                                        className="w-full py-4 rounded-2xl border-2 border-dashed border-[#2E7D6B]/30 text-[#2E7D6B] font-bold text-sm hover:bg-[#2E7D6B]/5 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Add Food to {slot}
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })()}
-                </div>
-            </div >
         </div >
     );
 };
