@@ -503,7 +503,7 @@ const MealPlannerPage = () => {
                                         {slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}
                                     </div>
                                     <div>
-                                        <div className="uppercase font-extrabold text-[9px] tracking-widest text-gray-400">{slot}</div>
+                                        <div className="uppercase font-bold text-[12px] tracking-widest text-gray-500">{slot}</div>
                                         <div className="text-sm font-bold mt-0 text-[#1F2933]">
                                             <span className={totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}>{totalCals}</span> / {target} kcal
                                         </div>
@@ -539,7 +539,26 @@ const MealPlannerPage = () => {
                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                                     </button>
                                                 </div>
-                                                <button className="text-red-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                                <button onClick={() => {
+                                                    const currentItems = plan[currentDay]?.[slot] || [];
+                                                    const remainingItems = currentItems.filter(i => i.uuid !== item.uuid);
+
+                                                    // Smart Re-balance
+                                                    if (remainingItems.length > 0) {
+                                                        const targetCals = stats.mealSplit[slot] || 600;
+                                                        const newTotal = remainingItems.length;
+                                                        const calsPerItem = Math.floor(targetCals / newTotal);
+
+                                                        const updatedRemaining = remainingItems.map(rem => ({
+                                                            ...createItemInstance(rem, calsPerItem),
+                                                            uuid: rem.uuid
+                                                        }));
+
+                                                        setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [slot]: updatedRemaining } }));
+                                                    } else {
+                                                        setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [slot]: [] } }));
+                                                    }
+                                                }} className="text-red-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                                             </div>
 
                                             {/* MACRO BALANCER - COMPACT */}
@@ -637,7 +656,7 @@ const MealPlannerPage = () => {
                 searchModal.open && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setSearchModal({ open: false, slot: null })}></div>
-                        <div className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto text-[#1F2933]">
+                        <div className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto text-[#1F2933] relative z-10">
                             <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
                                 <h3 className="font-bold text-base capitalize pl-2">Add to {searchModal.slot}</h3>
                                 <button onClick={() => setSearchModal({ open: false })} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
@@ -655,8 +674,32 @@ const MealPlannerPage = () => {
                                 {foodDatabase.filter(f => (!searchValue || f.name.toLowerCase().includes(searchValue.toLowerCase())) && (searchModal.slot === 'snacks' ? f.category === 'Snacks' : true))
                                     .slice(0, 20).map(item => (
                                         <button key={item.id} onClick={() => {
-                                            const instance = createItemInstance(item, stats.mealSplit[searchModal.slot] / 2 || 400);
-                                            setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [searchModal.slot]: [...(p[currentDay][searchModal.slot] || []), instance] } }));
+                                            const slot = searchModal.slot;
+                                            const currentItems = plan[currentDay]?.[slot] || [];
+                                            const targetCals = stats.mealSplit[slot] || 600;
+
+                                            // Smart Distribution: Split total target among all items (existing + new)
+                                            const newTotalItems = currentItems.length + 1;
+                                            const calsPerItem = Math.floor(targetCals / newTotalItems);
+
+                                            // 1. Re-scale EXISTING items
+                                            const updatedExistingItems = currentItems.map(existing => ({
+                                                ...createItemInstance(existing, calsPerItem),
+                                                uuid: existing.uuid // Preserve identity
+                                            }));
+
+                                            // 2. Create NEW item scaled
+                                            const newItem = createItemInstance(item, calsPerItem);
+
+                                            const newSlotList = [...updatedExistingItems, newItem];
+
+                                            setPlan(p => ({
+                                                ...p,
+                                                [currentDay]: {
+                                                    ...p[currentDay],
+                                                    [slot]: newSlotList
+                                                }
+                                            }));
                                             setSearchModal({ open: false });
                                         }} className="w-full text-left p-4 rounded-2xl border border-transparent hover:border-[#2E7D6B]/30 hover:bg-white transition-all flex justify-between items-center bg-white shadow-sm hover:shadow-md group">
                                             <div>
