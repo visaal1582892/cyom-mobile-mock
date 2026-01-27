@@ -8,56 +8,9 @@ import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTarg
 
 // --- SUB-COMPONENTS ---
 
-// 1. Mini Donut Chart
-const MacroDonut = ({ p, c, f, size = 40 }) => {
-    const total = p + c + f || 1;
-    const pDeg = (p / total) * 360;
-    const cDeg = (c / total) * 360;
-    const fDeg = (f / total) * 360;
-
+const MacroCell = ({ val, target, type }) => {
     return (
-        <div className="relative rounded-full flex items-center justify-center font-bold text-[10px]" style={{ width: size, height: size, background: `conic-gradient(#4ADE80 0deg ${pDeg}deg, #60A5FA ${pDeg}deg ${pDeg + cDeg}deg, #FACC15 ${pDeg + cDeg}deg 360deg)` }}>
-            <div className="bg-white rounded-full flex items-center justify-center" style={{ width: size * 0.6, height: size * 0.6 }}></div>
-        </div>
-    );
-};
-
-// 2. Connected Macro Slider
-const MacroBalancer = ({ macros, totalCalories, onUpdate }) => {
-    const pCal = macros.protein * 4;
-    const cCal = macros.carbs * 4;
-    const fCal = macros.fats * 9;
-    const currentTotal = pCal + cCal + fCal || 1;
-
-    const pPerc = (pCal / currentTotal) * 100;
-    const cPerc = (cCal / currentTotal) * 100;
-    const fPerc = (fCal / currentTotal) * 100;
-
-    return (
-        <div className="space-y-2">
-            {/* Visual Bar */}
-            <div className="h-3 w-full rounded-full flex overflow-hidden shadow-inner bg-gray-100/50">
-                <div style={{ width: `${pPerc}%` }} className="bg-[#4ADE80] transition-all duration-300"></div>
-                <div style={{ width: `${cPerc}%` }} className="bg-[#60A5FA] transition-all duration-300"></div>
-                <div style={{ width: `${fPerc}%` }} className="bg-[#FACC15] transition-all duration-300"></div>
-            </div>
-
-            {/* Sliders / Inputs */}
-            <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
-                <div className='flex flex-col'>
-                    <span className="text-gray-400 font-bold uppercase text-[9px]">PROT</span>
-                    <span className="text-[#4ADE80] font-black">{macros.protein}g</span>
-                </div>
-                <div className='flex flex-col'>
-                    <span className="text-gray-400 font-bold uppercase text-[9px]">CARB</span>
-                    <span className="text-[#60A5FA] font-black">{macros.carbs}g</span>
-                </div>
-                <div className='flex flex-col'>
-                    <span className="text-gray-400 font-bold uppercase text-[9px]">FAT</span>
-                    <span className="text-[#FACC15] font-black">{macros.fats}g</span>
-                </div>
-            </div>
-        </div>
+        <span className="font-medium text-gray-700">{val}</span>
     );
 };
 
@@ -76,34 +29,27 @@ const MealPlannerPage = () => {
     // UI State
     const [currentDay, setCurrentDay] = useState(1);
     const [planDuration, setPlanDuration] = useState(1);
-    const [expandedCard, setExpandedCard] = useState(null);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [expandedMeals, setExpandedMeals] = useState({}); // { [mealUuid]: boolean }
+    const [activeBoosterTab, setActiveBoosterTab] = useState({}); // { [mealUuid]: 'Protein' | 'Carb' | 'Fat' }
 
-    // Toggle State for Ingredient Info (Key: "mealUuid_ingIndex")
-    const [visibleInfo, setVisibleInfo] = useState({});
-
-    const toggleInfo = (id) => {
-        setVisibleInfo(prev => ({ ...prev, [id]: !prev[id] }));
+    const toggleMeal = (uuid) => {
+        setExpandedMeals(prev => ({ ...prev, [uuid]: !prev[uuid] }));
+        if (!activeBoosterTab[uuid]) setActiveBoosterTab(prev => ({ ...prev, [uuid]: 'Protein' }));
     };
 
-    // Modal State
-    const [searchModal, setSearchModal] = useState({ open: false, slot: null });
-
-    // Swap Modal State
-    const [swapModal, setSwapModal] = useState({
-        open: false,
-        mode: null,
+    // INLINE SEARCH STATE
+    // Moved to Overlay, but keeping same state structure
+    const [inlineSearch, setInlineSearch] = useState({
+        active: false,
         slot: null,
-        originalItem: null,
-        originalIndex: null,
-        candidates: []
+        itemUuid: null,
+        ingIdx: null,
+        type: null, // 'MEAL', 'ING', 'ADD'
+        query: ''
     });
 
-    // Save Modal
     const [saveModalOpen, setSaveModalOpen] = useState(false);
     const [planName, setPlanName] = useState("");
-
-    const [searchValue, setSearchValue] = useState("");
     const [toast, setToast] = useState(null);
 
     // Helpers
@@ -141,7 +87,17 @@ const MealPlannerPage = () => {
         for (let i = 1; i <= days; i++) {
             newPlan[i] = { breakfast: [], lunch: [], snacks: [], dinner: [] };
             ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
-                let pool = foodDatabase.filter(f => f.isCooked && (diet === 'Vegetarian' ? f.type === 'veg' : true) && (slot === 'snacks' ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot)));
+                let pool = foodDatabase.filter(f => {
+                    // 1. Cooked & Slot Match
+                    const isCookedAndSlot = f.isCooked && (slot === 'snacks' ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot));
+                    if (!isCookedAndSlot) return false;
+
+                    // 2. Strict Diet Match
+                    if (diet === 'Vegetarian') return f.type === 'veg';
+                    if (diet === 'Eggetarian' || diet === 'Eggetarian' || diet === 'Eggitarian') return (f.type === 'veg' || f.type === 'egg');
+                    return true; // Non-Veg sees all
+                });
+
                 if (cuisine !== 'Mixed' && cuisine !== 'All') pool = pool.filter(f => f.region === cuisine || f.region === 'All' || f.region === 'International');
 
                 if (pool.length > 0) {
@@ -181,73 +137,111 @@ const MealPlannerPage = () => {
         };
     };
 
-    // --- SWAP LOGIC ---
-    const initiateMealSwap = (slot, originalItem) => {
-        const cands = foodDatabase.filter(f =>
-            f.id !== originalItem.id && f.isCooked &&
-            (preferences.dietPreference === 'Vegetarian' ? f.type === 'veg' : true) &&
-            f.category === originalItem.category
-        ).map(c => {
-            const ratio = originalItem.calculatedCalories / (c.calories || 1);
-            return createItemInstance(c, originalItem.calculatedCalories);
-        });
+    // --- SMART MACRO BOOSTER LOGIC ---
+    const handleBoostAdd = (slot, mealUuid, boosterItem) => {
+        const currentItems = [...plan[currentDay][slot]];
+        const mealIdx = currentItems.findIndex(i => i.uuid === mealUuid);
+        if (mealIdx === -1) return;
 
-        setSwapModal({ open: true, mode: 'MEAL', slot, originalItem, candidates: cands });
-    };
+        const meal = { ...currentItems[mealIdx] };
 
-    const initiateIngredientSwap = (slot, mealItem, ingIndex) => {
-        const originalIng = mealItem.composition[ingIndex];
-        const cands = foodDatabase.filter(f =>
-            !f.isCooked &&
-            f.name !== originalIng.name &&
-            (
-                (originalIng.name.toLowerCase().includes("rice") && f.name.toLowerCase().includes("rice")) ||
-                (originalIng.name.toLowerCase().includes("rice") && f.name.toLowerCase().includes("quinoa")) ||
-                (originalIng.name.toLowerCase().includes("chicken") && f.name.toLowerCase().includes("chicken")) ||
-                (originalIng.name.toLowerCase().includes("chicken") && f.name.toLowerCase().includes("turkey")) ||
-                (originalIng.name.toLowerCase().includes("dal") && f.name.toLowerCase().includes("dal")) ||
-                (originalIng.name.toLowerCase().includes("egg") && f.name.toLowerCase().includes("egg")) ||
-                f.category === 'Generic'
-            )
-        ).slice(0, 10).map(c => {
-            const targetCals = originalIng.scaledCalories || 100;
-            const baseCals = c.calories;
-            const newWeight = Math.round((targetCals / (baseCals || 1)) * 100);
-            const ratio = newWeight / 100;
+        // 1. Calculate Standard Amount for Booster (e.g. 50g or 1 serving)
+        const boosterWeight = parseServingWeight(boosterItem) || 50;
+        const boosterCals = (boosterItem.calories / (boosterItem.ediblePortion || 100)) * boosterWeight;
+
+        // 2. Current Meal Totals
+        const currentTotalCals = meal.calculatedCalories;
+
+        // 3. New Unscaled Total if simply added
+        const unscaledTotal = currentTotalCals + boosterCals;
+
+        // 4. Scaling Factor to MAINTAIN Energy (Neutral Addition)
+        const scaleFactor = currentTotalCals / unscaledTotal;
+
+        // 5. Create New Ingredient Object
+        const newIng = {
+            name: boosterItem.name,
+            weight: boosterWeight,
+            calories: boosterCals,
+            protein: (boosterItem.protein / 100) * boosterWeight,
+            carbs: (boosterItem.carbs / 100) * boosterWeight,
+            fats: (boosterItem.fats / 100) * boosterWeight,
+            category: boosterItem.category,
+            type: boosterItem.type
+        };
+
+        // 6. Apply Scaling to ALL Ingredients (Existing + New)
+        const newComposition = [...(meal.composition || []), newIng].map(c => {
+            const ratio = scaleFactor; // Decrease existing, scale down new
+            // FIX: Prioritize current scaledWeight to chain reductions correctly
+            const currentWeight = c.scaledWeight !== undefined ? c.scaledWeight : c.weight;
+            const currentCals = c.scaledCalories !== undefined ? c.scaledCalories : c.calories;
+            const currentP = c.scaledProtein !== undefined ? c.scaledProtein : c.protein;
+            const currentC = c.scaledCarbs !== undefined ? c.scaledCarbs : c.carbs;
+            const currentF = c.scaledFats !== undefined ? c.scaledFats : c.fats;
 
             return {
                 ...c,
-                scaledWeight: newWeight,
-                scaledCalories: Math.round(baseCals * ratio),
-                scaledProtein: Math.round(c.protein * ratio),
-                scaledCarbs: Math.round(c.carbs * ratio),
-                scaledFats: Math.round(c.fats * ratio)
+                scaledWeight: Math.round((currentWeight || 0) * ratio),
+                scaledCalories: Math.round((currentCals || 0) * ratio),
+                scaledProtein: Math.round((currentP || 0) * ratio),
+                scaledCarbs: Math.round((currentC || 0) * ratio),
+                scaledFats: Math.round((currentF || 0) * ratio)
             };
         });
 
-        if (cands.length === 0) {
-            setToast({ msg: "No suitable alternatives found.", type: "error" });
-            return;
-        }
+        // 7. Update Meal Totals
+        meal.composition = newComposition;
+        // Total Cals stays roughly same (due to rounding)
+        meal.calculatedCalories = newComposition.reduce((a, b) => a + b.scaledCalories, 0);
+        meal.calculatedWeight = newComposition.reduce((a, b) => a + b.scaledWeight, 0); // FIXED: Update Total Weight
+        meal.macros.protein = newComposition.reduce((a, b) => a + b.scaledProtein, 0);
+        meal.macros.carbs = newComposition.reduce((a, b) => a + b.scaledCarbs, 0);
+        meal.macros.fats = newComposition.reduce((a, b) => a + b.scaledFats, 0);
 
-        setSwapModal({ open: true, mode: 'INGREDIENT', slot, originalItem: mealItem, originalIndex: ingIndex, candidates: cands });
+        currentItems[mealIdx] = meal;
+        setPlan(prev => ({ ...prev, [currentDay]: { ...prev[currentDay], [slot]: currentItems } }));
     };
 
-    const confirmSwap = (candidate) => {
-        const { slot, originalItem, mode, originalIndex } = swapModal;
+    // --- SEARCH / SWAP LOGIC ---
 
-        if (mode === 'MEAL') {
+    const handleSearchSelect = (selectedItem) => {
+        const { slot, itemUuid, ingIdx, type } = inlineSearch;
+        const currentItems = plan[currentDay][slot];
+
+        if (type === 'MEAL') {
+            const originalItem = currentItems.find(i => i.uuid === itemUuid);
+            // Meal Swap Logic - Maintain Calorie Target (Smart Swap)
+            const targetCals = originalItem.calculatedCalories;
+            const newItem = createItemInstance(selectedItem, targetCals);
+
             setPlan(prev => ({
                 ...prev,
                 [currentDay]: {
                     ...prev[currentDay],
-                    [slot]: prev[currentDay][slot].map(i => i.uuid === originalItem.uuid ? candidate : i)
+                    [slot]: prev[currentDay][slot].map(i => i.uuid === itemUuid ? newItem : i)
                 }
             }));
-        } else {
-            const newItem = { ...originalItem };
-            const newComp = [...newItem.composition];
-            newComp[originalIndex] = { ...candidate, name: candidate.name };
+        } else if (type === 'ING') {
+            const originalItem = currentItems.find(i => i.uuid === itemUuid);
+            // Ingredient Swap Logic
+            const originalIng = originalItem.composition[ingIdx];
+            const targetCals = originalIng.scaledCalories || 50;
+            const baseCals = selectedItem.calories;
+            const ratio = targetCals / (baseCals || 1);
+
+            const newIng = {
+                ...selectedItem,
+                scaledWeight: Math.round((parseServingWeight(selectedItem) || 100) * ratio),
+                scaledCalories: Math.round(targetCals),
+                scaledProtein: Math.round((selectedItem.protein || 0) * ratio),
+                scaledCarbs: Math.round((selectedItem.carbs || 0) * ratio),
+                scaledFats: Math.round((selectedItem.fats || 0) * ratio)
+            };
+
+            // Recalculate Parent Meal
+            const newComp = [...originalItem.composition];
+            newComp[ingIdx] = newIng;
 
             const totalCals = newComp.reduce((a, b) => a + (b.scaledCalories || 0), 0);
             const totalP = newComp.reduce((a, b) => a + (b.scaledProtein || 0), 0);
@@ -255,26 +249,52 @@ const MealPlannerPage = () => {
             const totalF = newComp.reduce((a, b) => a + (b.scaledFats || 0), 0);
             const totalW = newComp.reduce((a, b) => a + (b.scaledWeight || 0), 0);
 
-            newItem.composition = newComp;
-            newItem.calculatedCalories = totalCals;
-            newItem.calculatedWeight = totalW;
-            newItem.macros = { protein: totalP, carbs: totalC, fats: totalF };
+            const updatedMeal = {
+                ...originalItem,
+                composition: newComp,
+                calculatedCalories: totalCals,
+                calculatedWeight: totalW,
+                macros: { protein: totalP, carbs: totalC, fats: totalF }
+            };
 
             setPlan(prev => ({
                 ...prev,
                 [currentDay]: {
                     ...prev[currentDay],
-                    [slot]: prev[currentDay][slot].map(i => i.uuid === originalItem.uuid ? newItem : i)
+                    [slot]: prev[currentDay][slot].map(i => i.uuid === itemUuid ? updatedMeal : i)
+                }
+            }));
+        } else if (type === 'ADD') {
+            const targetCals = stats.mealSplit[slot] || 600;
+
+            // Smart Distribution: Split total target among all items (existing + new)
+            const newTotalItems = currentItems.length + 1;
+            const calsPerItem = Math.floor(targetCals / newTotalItems);
+
+            // 1. Re-scale EXISTING items
+            const updatedExistingItems = currentItems.map(existing => ({
+                ...createItemInstance(existing, calsPerItem),
+                uuid: existing.uuid // Preserve identity
+            }));
+
+            // 2. Create NEW item scaled
+            const newItem = createItemInstance(selectedItem, calsPerItem);
+
+            const newSlotList = [...updatedExistingItems, newItem];
+
+            setPlan(p => ({
+                ...p,
+                [currentDay]: {
+                    ...p[currentDay],
+                    [slot]: newSlotList
                 }
             }));
         }
 
-        setSwapModal({ open: false, mode: null, slot: null, originalItem: null, candidates: [] });
-        setToast({ msg: `${mode === 'MEAL' ? 'Meal' : 'Ingredient'} swapped!`, type: "success" });
+        setInlineSearch({ active: false, slot: null, itemUuid: null, ingIdx: null, type: null, query: '' });
     };
 
-    // --- INLINE EDIT (Smart Balancing) ---
-    const handleIngredientWeightChange = (slot, itemUuid, idx, newVal) => {
+    const handleIngredientWeightChange = (slot, itemUuid, ingIdx, newVal) => {
         let weight = parseInt(newVal);
         if (isNaN(weight) || weight < 0) weight = 0;
         if (weight > 2000) return;
@@ -285,20 +305,25 @@ const MealPlannerPage = () => {
                 ...prev[currentDay],
                 [slot]: prev[currentDay][slot].map(item => {
                     if (item.uuid !== itemUuid) return item;
-                    const targetTotalCals = item.calculatedCalories;
+
+                    // 1. Calculate new values for the edited ingredient
+                    const targetTotalCals = item.calculatedCalories; // Keep Meal Total constant
                     const comp = [...item.composition];
-                    const editedIng = comp[idx];
+                    const editedIng = comp[ingIdx];
                     const oldWeight = editedIng.scaledWeight || 1;
                     const oldCals = editedIng.scaledCalories || 0;
 
                     const calPerGram = oldWeight > 0 ? oldCals / oldWeight : 0;
                     const newCals_edited = Math.round(weight * calPerGram);
 
+                    // 2. Determine Remaining Budget for other ingredients
                     let remainingBudget = targetTotalCals - newCals_edited;
-                    if (remainingBudget < 0) remainingBudget = 0;
+                    if (remainingBudget < 0) remainingBudget = 0; // Prevent negative budget
 
-                    const weightRatio = oldWeight > 0 ? weight / oldWeight : 0;
-                    comp[idx] = {
+                    const weightRatio = oldWeight > 0 ? weight / oldWeight : 0; // Fallback ratio
+
+                    // Update the edited ingredient
+                    comp[ingIdx] = {
                         ...editedIng,
                         scaledWeight: weight,
                         scaledCalories: newCals_edited,
@@ -307,7 +332,8 @@ const MealPlannerPage = () => {
                         scaledFats: Math.round((editedIng.scaledFats || 0) * weightRatio)
                     };
 
-                    const otherIndices = comp.map((_, i) => i).filter(i => i !== idx);
+                    // 3. Smart Redistribute remaining budget among OTHER ingredients
+                    const otherIndices = comp.map((_, i) => i).filter(i => i !== ingIdx);
                     const currentOtherTotalCals = otherIndices.reduce((sum, i) => sum + (comp[i].scaledCalories || 0), 0);
 
                     if (otherIndices.length > 0) {
@@ -318,11 +344,14 @@ const MealPlannerPage = () => {
 
                             let newAllocatedCals = 0;
                             if (currentOtherTotalCals > 0) {
+                                // Proportional distribution based on previous calorie contribution
                                 const prop = ingCal / currentOtherTotalCals;
                                 newAllocatedCals = remainingBudget * prop;
                             } else {
                                 newAllocatedCals = 0;
                             }
+
+                            // Scale weight based on new calories
                             const ingRatio = ingCal > 0 ? newAllocatedCals / ingCal : 0;
                             const newWt = Math.round(ingWeight * ingRatio);
 
@@ -337,6 +366,7 @@ const MealPlannerPage = () => {
                         });
                     }
 
+                    // 4. Final Recalculation to ensure sums match exactly (handle rounding errors)
                     const finalTotalCals = comp.reduce((a, b) => a + (b.scaledCalories || 0), 0);
                     const finalTotalW = comp.reduce((a, b) => a + (b.scaledWeight || 0), 0);
                     const finalP = comp.reduce((a, b) => a + (b.scaledProtein || 0), 0);
@@ -345,7 +375,7 @@ const MealPlannerPage = () => {
 
                     return {
                         ...item,
-                        calculatedCalories: finalTotalCals,
+                        calculatedCalories: finalTotalCals, // Should be close to targetTotalCals
                         calculatedWeight: finalTotalW,
                         macros: { protein: finalP, carbs: finalC, fats: finalF },
                         composition: comp
@@ -354,403 +384,608 @@ const MealPlannerPage = () => {
             }
         }));
     };
+    const handleDeleteIngredient = (slot, itemUuid, ingIdx) => {
+        setPlan(prev => ({
+            ...prev,
+            [currentDay]: {
+                ...prev[currentDay],
+                [slot]: prev[currentDay][slot].map((item) => {
+                    if (item.uuid !== itemUuid) return item;
 
-    const handleSavePlan = () => {
-        if (!planName.trim()) {
-            setToast({ msg: "Please verify plan name", type: "error" });
+                    // 1. Remove the ingredient
+                    const newComposition = item.composition.filter((_, idx) => idx !== ingIdx);
+
+                    // If no ingredients left, return null (will be filtered out by parent logic if desired, or handled here)
+                    // Better approach: If empty, we should arguably delete the meal? 
+                    // But here we are mapping. Let's just return empty composition for now, and let the user delete the meal if they want, 
+                    // OR trigger a deleteMeal if empty.
+                    if (newComposition.length === 0) {
+                        // We can't delete the meal from inside the map nicely. 
+                        // We'll return a marked item or just empty composition.
+                        // Let's call handleDeleteMeal separately if we want to remove it entirely, 
+                        // but since we are inside a setState callback, we can't easily call another handler that sets state.
+                        // For now, let's allow empty meals (shells) or just handle it below.
+                        return { ...item, composition: [], calculatedCalories: 0, macros: { protein: 0, carbs: 0, fats: 0 } };
+                    }
+
+                    // 2. Redistribute Calories
+                    // We want to maintain `item.calculatedCalories` (Total Target).
+                    const targetTotalCals = item.calculatedCalories;
+
+                    // Logic: Get current total of remaining items
+                    const currentRemainingTotal = newComposition.reduce((sum, ing) => sum + (ing.scaledCalories || 0), 0) || 1;
+
+                    // Calculate scaling factor to bring remaining total back up to target
+                    const ratio = targetTotalCals / currentRemainingTotal;
+
+                    // 3. Scale remaining ingredients
+                    const scaledComposition = newComposition.map(ing => {
+                        const newCals = Math.round((ing.scaledCalories || 0) * ratio);
+                        const newWeight = Math.round((ing.scaledWeight || 0) * ratio);
+
+                        return {
+                            ...ing,
+                            scaledWeight: newWeight,
+                            scaledCalories: newCals,
+                            scaledProtein: Math.round((ing.scaledProtein || 0) * ratio),
+                            scaledCarbs: Math.round((ing.scaledCarbs || 0) * ratio),
+                            scaledFats: Math.round((ing.scaledFats || 0) * ratio)
+                        };
+                    });
+
+                    // 4. Re-calculate actual totals from scaled ingredients (to fix rounding errors)
+                    const finalTotalCals = scaledComposition.reduce((a, b) => a + b.scaledCalories, 0);
+                    const finalTotalW = scaledComposition.reduce((a, b) => a + b.scaledWeight, 0);
+                    const finalP = scaledComposition.reduce((a, b) => a + b.scaledProtein, 0);
+                    const finalC = scaledComposition.reduce((a, b) => a + b.scaledCarbs, 0);
+                    const finalF = scaledComposition.reduce((a, b) => a + b.scaledFats, 0);
+
+                    return {
+                        ...item,
+                        composition: scaledComposition,
+                        calculatedCalories: finalTotalCals,
+                        calculatedWeight: finalTotalW,
+                        macros: { protein: finalP, carbs: finalC, fats: finalF }
+                    };
+                }).filter(item => item.composition.length > 0) // Remove meal if it became empty
+            }
+        }));
+    };
+
+    const handleDeleteMeal = (slot, itemUuid) => {
+        // 1. Get current list and target
+        const currentList = plan[currentDay]?.[slot] || [];
+        const slotTarget = stats.mealSplit[slot] || 0;
+
+        // 2. Remove target item
+        const remainingList = currentList.filter(item => item.uuid !== itemUuid);
+
+        // 3. If empty, just set empty (0)
+        if (remainingList.length === 0) {
+            setPlan(prev => ({
+                ...prev,
+                [currentDay]: {
+                    ...prev[currentDay],
+                    [slot]: []
+                }
+            }));
             return;
         }
-        const planData = {
-            id: Date.now(),
-            name: planName,
-            createdAt: new Date().toISOString(),
-            stats: { ...stats, preferences },
-            plan: plan,
-            duration: planDuration
-        };
-        const existing = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
-        localStorage.setItem('cyom_saved_plans', JSON.stringify([...existing, planData]));
-        setSaveModalOpen(false);
-        setToast({ msg: "Plan saved successfully!", type: "success" });
+
+        // 4. Calculate total calories of remaining items
+        const currentRemainingTotal = remainingList.reduce((a, b) => a + (b.calculatedCalories || 0), 0) || 1;
+
+        // 5. Calculate scaling ratio
+        const ratio = slotTarget / currentRemainingTotal;
+
+        // 6. Scale remaining items
+        const scaledList = remainingList.map(item => {
+            // Deep clone composition and scale
+            const newComposition = (item.composition || []).map(comp => {
+                return {
+                    ...comp,
+                    scaledWeight: Math.round((comp.scaledWeight || 0) * ratio),
+                    scaledCalories: Math.round((comp.scaledCalories || 0) * ratio),
+                    scaledProtein: Math.round((comp.scaledProtein || 0) * ratio),
+                    scaledCarbs: Math.round((comp.scaledCarbs || 0) * ratio),
+                    scaledFats: Math.round((comp.scaledFats || 0) * ratio)
+                };
+            });
+
+            // Re-sum item totals
+            const newTotalCals = newComposition.reduce((a, b) => a + b.scaledCalories, 0);
+            const newTotalW = newComposition.reduce((a, b) => a + b.scaledWeight, 0);
+            const newP = newComposition.reduce((a, b) => a + b.scaledProtein, 0);
+            const newC = newComposition.reduce((a, b) => a + b.scaledCarbs, 0);
+            const newF = newComposition.reduce((a, b) => a + b.scaledFats, 0);
+
+            return {
+                ...item,
+                calculatedCalories: newTotalCals,
+                calculatedWeight: newTotalW,
+                macros: { protein: newP, carbs: newC, fats: newF },
+                composition: newComposition
+            };
+        });
+
+        // 7. Update State
+        setPlan(prev => ({
+            ...prev,
+            [currentDay]: {
+                ...prev[currentDay],
+                [slot]: scaledList
+            }
+        }));
     };
 
-    const handleLogout = () => {
-        navigate('/');
+    const handleDownloadExcel = () => {
+        let csvContent = "Day,Slot,Item Name,Weight (g),Calories (kcal),Protein (g),Carbs (g),Fats (g)\n";
+
+        for (let d = 1; d <= (planDuration || 1); d++) {
+            ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+                const items = plan[d]?.[slot] || [];
+                items.forEach(item => {
+                    csvContent += `${d},${slot},"${item.name}",${item.calculatedWeight},${item.calculatedCalories},${item.macros.protein},${item.macros.carbs},${item.macros.fats}\n`;
+                });
+            });
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `meal_plan_${userData.name || 'user'}_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
-    const calculateDailyTotal = () => {
-        const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
-        if (!plan[currentDay]) return 0;
-        return slots.reduce((total, slot) => {
-            return total + (plan[currentDay][slot]?.reduce((acc, i) => acc + i.calculatedCalories, 0) || 0);
-        }, 0);
-    };
 
-    const dailyTotalCals = calculateDailyTotal();
 
-    // --- RENDER ---
     const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
+    const dailyTotal = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.calculatedCalories, 0) || 0), 0);
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white" >
-            {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-
-            {/* Background Decor */}
-            <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
-
+        <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
             {/* --- HEADER --- */}
-            <div className="pt-6 px-4 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    {/* BACK BUTTON */}
-                    <button onClick={() => navigate('/meal-creation')} className="rounded-full hover:bg-white/20 transition-all active:scale-95 group">
-                        <svg className="w-8 h-8 text-white group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-
-                    <div className="font-bold text-lg flex items-center ">
-                        MEAL <span className="text-green-100 text-xs ml-1 opacity-80">Planner</span>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    {/* Profile Dropdown */}
-                    <div className="relative">
-                        <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold backdrop-blur-md shadow-lg hover:border-white transition-all overflow-hidden p-0.5">
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold rounded-full text-xs">
-                                IMG
-                            </div>
+            <div className="bg-white shadow-sm border-b border-gray-100 z-20 sticky top-0">
+                <div className="p-3 sm:p-4 flex justify-between items-center max-w-7xl mx-auto w-full">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <button onClick={() => navigate('/meal-creation')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
-                        {isProfileOpen && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-                                <div className="absolute top-12 right-0 w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl py-2 z-50 text-gray-800 border border-white/50 animate-slide-down">
-                                    <div className="px-4 py-3 border-b border-gray-100">
-                                        <div className="font-bold text-sm text-[#2E7D6B]">{userData.name}</div>
-                                        <div className="text-[10px] text-gray-500">Premium Member</div>
-                                    </div>
-                                    <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2.5 hover:bg-[#2E7D6B]/5 text-sm text-gray-600 flex items-center gap-3 transition-colors">
-                                        <span>👤</span> My Profile
-                                    </button>
-                                    <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-2.5 hover:bg-[#2E7D6B]/5 text-sm text-gray-600 flex items-center gap-3 transition-colors">
-                                        <span>📂</span> Saved Plans
-                                    </button>
-                                    <div className="h-px bg-gray-100 my-1"></div>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm text-red-500 flex items-center gap-3 transition-colors">
-                                        <span>🚪</span> Logout
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* --- SUB-HEADER (Stats & Day Selection) --- */}
-            <div className="px-5 mt-6 flex justify-between items-center z-10 text-white">
-
-                {/* LEFT: Daily Goal */}
-                <div>
-                    <div className="text-[10px] uppercase font-bold text-green-100 tracking-wider mb-0.5 opacity-80">Daily Goal</div>
-                    <div className="text-xl font-bold leading-none flex items-baseline gap-1.5 font-mono tracking-tight">
-                        <span>{dailyTotalCals}</span>
-                        <span className="opacity-60 text-xs font-sans font-medium">/ {stats.targetCalories} kcal</span>
-                    </div>
-                </div>
-
-                {/* RIGHT: Enhanced Day Selector */}
-                <div className="relative group">
-                    {/* Glass Pill Container */}
-                    <div className="flex items-center gap-3 bg-white/20 pl-4 pr-3 py-2 rounded-2xl backdrop-blur-md border border-white/20 hover:bg-white/30 transition-all cursor-pointer shadow-lg shadow-black/5">
-                        <span className="text-sm font-bold tracking-wide">Day {currentDay}</span>
-                        <div className="bg-white/90 text-[#2E7D6B] rounded-xl p-1 shadow-sm">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                        <div>
+                            <div className="font-black text-base sm:text-lg text-[#2E7D6B] tracking-tight">MEAL PLANNER</div>
+                            <div className="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest">{userData.name} • Day {currentDay}</div>
                         </div>
                     </div>
 
-                    {/* Hidden Select Overlay for Functionality */}
-                    {planDuration > 1 && (
-                        <select
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            value={currentDay}
-                            onChange={e => setCurrentDay(parseInt(e.target.value))}
-                        >
-                            {Array.from({ length: planDuration }, (_, i) => i + 1).map(d => (
-                                <option key={d} value={d} className="text-gray-800 font-medium">Jump to Day {d}</option>
-                            ))}
-                        </select>
-                    )}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="text-right">
+                            <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase">Daily Total</div>
+                            <div className={`text-sm sm:text-lg font-black ${dailyTotal > stats.targetCalories ? 'text-red-500' : 'text-[#2E7D6B]'}`}>
+                                {dailyTotal} <span className="text-gray-300 text-[10px] sm:text-xs text-normal">/ {stats.targetCalories}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <select
+                                value={currentDay}
+                                onChange={(e) => setCurrentDay(Number(e.target.value))}
+                                className="bg-gray-50 border border-gray-200 text-gray-700 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-xl outline-none focus:border-[#2E7D6B] transition-colors"
+                            >
+                                {Array.from({ length: planDuration || 1 }, (_, i) => i + 1).map(d => (
+                                    <option key={d} value={d}>Day {d}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* MAIN CONTENT - SCROLLABLE & COMPACT */}
-            <div className="flex-1 overflow-y-auto px-4 pt-6 pb-24 space-y-2 custom-scrollbar">
-                {slots.map(slot => {
-                    const items = plan[currentDay]?.[slot] || [];
-                    const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0);
-                    const target = stats.mealSplit[slot] || 0;
-                    const isExpanded = expandedCard === slot;
+            {/* --- TABLE CONTENT --- */}
+            <div className="flex-1 overflow-x-auto overflow-y-auto px-0 sm:px-6 py-0 sm:py-4 custom-scrollbar pb-24 mt-4">
+                <div className="max-w-7xl mx-auto bg-white sm:rounded-2xl shadow-sm border-0 sm:border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-full table-fixed">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                    <th className="p-1 sm:p-4 w-[52%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Meal / Ingredient</th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">P <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">C <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">F <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                </tr>
+                            </thead>
 
-                    const slotP = items.reduce((a, b) => a + b.macros.protein, 0);
-                    const slotC = items.reduce((a, b) => a + b.macros.carbs, 0);
-                    const slotF = items.reduce((a, b) => a + b.macros.fats, 0);
+                            {slots.map(slot => {
+                                const items = plan[currentDay]?.[slot] || [];
+                                const target = stats.mealSplit[slot] || 0;
+                                const reqP = Math.round(target * 0.25 / 4);
+                                const reqC = Math.round(target * 0.50 / 4);
+                                const reqF = Math.round(target * 0.25 / 9);
 
-                    // Accordion Card Styling (White Glass)
-                    return (
-                        <div key={slot} className={`bg-white/95 backdrop-blur-xl rounded-2xl shadow-sm transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-white/30 transform scale-[1.00]' : 'border border-white/30 hover:bg-white'}`}>
-                            {/* Accoridon Header - Compact */}
-                            <div onClick={() => setExpandedCard(isExpanded ? null : slot)} className="p-3 flex justify-between items-center cursor-pointer active:bg-gray-50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-colors ${isExpanded ? 'bg-[#2E7D6B] text-white shadow-[#2E7D6B]/40' : 'bg-gray-100 text-gray-500'}`}>
-                                        {slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}
-                                    </div>
-                                    <div>
-                                        <div className="uppercase font-bold text-[12px] tracking-widest text-gray-500">{slot}</div>
-                                        <div className="text-sm font-bold mt-0 text-[#1F2933]">
-                                            <span className={totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}>{totalCals}</span> / {target} kcal
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {isExpanded ? (
-                                        <div className="text-[10px] font-bold text-gray-400">Hide Details</div>
-                                    ) : (
-                                        <MacroDonut p={slotP} c={slotC} f={slotF} size={30} />
-                                    )}
-                                    <div className={`p-1.5 rounded-full transition-all duration-300 ${isExpanded ? 'rotate-180 text-[#2E7D6B] bg-[#2E7D6B]/10' : 'text-gray-300'}`}>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
-                                    </div>
-                                </div>
-                            </div>
+                                const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0);
+                                const totalP = items.reduce((a, b) => a + b.macros.protein, 0);
+                                const totalC = items.reduce((a, b) => a + b.macros.carbs, 0);
+                                const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
 
-                            {/* EXPANDED CONTENT - MORE COMPACT */}
-                            {isExpanded && (
-                                <div className="px-2 pb-2 animate-slide-down bg-gray-50/50">
-                                    {items.length > 0 ? items.map((item, iDx) => (
-                                        <div key={item.uuid} className="bg-white rounded-xl border border-gray-100 p-2 mb-2 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)]">
-                                            {/* MEAL HEADER ROW */}
-                                            <div className="flex justify-between items-center mb-2 border-b border-gray-50 pb-2">
+                                return (
+                                    <tbody key={slot} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-sm">
+                                        {/* SECTION HEADER / TARGETS */}
+                                        <tr className="bg-[#2E7D6B]/5">
+                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-[#f0fdf9] z-10 border-r border-[#2E7D6B]/10 shadow-[2px_0_5px_-2px_rgba(46,125,107,0.1)]">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="font-bold text-sm text-gray-800">{item.name}</div>
-                                                    {/* MEAL SWAP BUTTON */}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); initiateMealSwap(slot, item); }}
-                                                        className="text-[#2E7D6B] bg-[#2E7D6B]/5 hover:bg-[#2E7D6B]/10 p-1 rounded transition-colors"
-                                                        title="Swap Entire Meal"
-                                                    >
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                    </button>
+                                                    <span className="text-base sm:text-lg">{slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}</span>
+                                                    <div>
+                                                        <div className="font-black text-xs sm:text-sm uppercase text-[#2E7D6B] tracking-wide">{slot}</div>
+                                                        <div className="text-[8px] sm:text-[10px] text-gray-400 font-medium">Requirements</div>
+                                                    </div>
                                                 </div>
-                                                <button onClick={() => {
-                                                    const currentItems = plan[currentDay]?.[slot] || [];
-                                                    const remainingItems = currentItems.filter(i => i.uuid !== item.uuid);
+                                            </td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold border-l border-white bg-[#2E7D6B]/10">{target}</td>
+                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqF}</td>
+                                        </tr>
 
-                                                    // Smart Re-balance
-                                                    if (remainingItems.length > 0) {
-                                                        const targetCals = stats.mealSplit[slot] || 600;
-                                                        const newTotal = remainingItems.length;
-                                                        const calsPerItem = Math.floor(targetCals / newTotal);
-
-                                                        const updatedRemaining = remainingItems.map(rem => ({
-                                                            ...createItemInstance(rem, calsPerItem),
-                                                            uuid: rem.uuid
-                                                        }));
-
-                                                        setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [slot]: updatedRemaining } }));
-                                                    } else {
-                                                        setPlan(p => ({ ...p, [currentDay]: { ...p[currentDay], [slot]: [] } }));
-                                                    }
-                                                }} className="text-red-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                            </div>
-
-                                            {/* MACRO BALANCER - COMPACT */}
-                                            <div className="bg-gray-50/80 rounded-lg p-2 mb-2 border border-gray-100">
-                                                <MacroBalancer macros={item.macros} />
-                                            </div>
-
-                                            {/* INGREDIENTS LIST - COMPACT */}
-                                            <div className="space-y-1">
-                                                {item.composition?.map((comp, idx) => {
-                                                    const infoKey = `${item.uuid}_${idx}`;
-                                                    const showInfo = visibleInfo[infoKey]; // Check toggle state
-
-                                                    return (
-                                                        <div key={idx} className="flex flex-col border-b border-gray-50 pb-1 last:border-0 last:pb-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                                                    {/* INGREDIENT SWAP BUTTON */}
-                                                                    <button
-                                                                        onClick={() => initiateIngredientSwap(slot, item, idx)}
-                                                                        className="text-gray-400 hover:text-[#2E7D6B] hover:bg-gray-100 p-0.5 rounded transition-colors shrink-0"
-                                                                        title="Swap Ingredient"
-                                                                    >
-                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                                                    </button>
-
-                                                                    <span className="text-xs font-bold text-gray-700 truncate">{comp.name}</span>
-
-                                                                    {/* INFO TOGGLE BUTTON */}
-                                                                    <button
-                                                                        onClick={() => toggleInfo(infoKey)}
-                                                                        className={`p-0.5 rounded-full border transition-all shrink-0 ${showInfo ? 'bg-[#2E7D6B] text-white border-[#2E7D6B]' : 'bg-transparent text-gray-300 border-gray-200 hover:border-[#2E7D6B] hover:text-[#2E7D6B]'}`}
-                                                                    >
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                                    </button>
+                                        {/* MEAL ITEMS */}
+                                        {items.map((item) => {
+                                            const isExpanded = expandedMeals[item.uuid];
+                                            return (
+                                                <React.Fragment key={item.uuid}>
+                                                    {/* PARENT ROW */}
+                                                    <tr className="hover:bg-gray-50 transition-colors group">
+                                                        <td className="p-2 sm:p-3 pl-3 sm:pl-4 border-r border-gray-100 border-dashed relative sticky left-0 bg-white group-hover:bg-gray-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer" onClick={() => toggleMeal(item.uuid)}>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    {/* Chevron */}
+                                                                    <div className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-[#2E7D6B]' : ''}`}>
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                                                                    </div>
+                                                                    <span className="font-bold text-gray-800 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{item.name}</span>
                                                                 </div>
-
-                                                                {/* Weight Input */}
-                                                                <div className="flex items-center border border-gray-200 rounded-md focus-within:border-[#2E7D6B] focus-within:ring-1 focus-within:ring-[#2E7D6B]/20 w-16 overflow-hidden bg-gray-50 shrink-0">
-                                                                    <input
-                                                                        className="w-full text-right text-[10px] font-bold outline-none bg-transparent p-1 text-gray-800"
-                                                                        value={comp.scaledWeight}
-                                                                        onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
-                                                                    />
-                                                                    <span className="text-[9px] text-gray-400 pr-1 font-medium">g</span>
+                                                                <div className="flex items-center gap-1 sm:gap-2">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: null, type: 'MEAL', query: '' }); }}
+                                                                        className="text-[#2E7D6B] hover:text-[#256a5b] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B]/20 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-bold"
+                                                                        title="Swap Meal"
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMeal(slot, item.uuid); }}
+                                                                        className="text-gray-300 hover:text-red-500 p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                    </button>
                                                                 </div>
                                                             </div>
+                                                        </td>
+                                                        <td className="p-2 sm:p-3 text-center font-bold text-gray-800">{item.calculatedCalories}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.protein}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.carbs}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.fats}</td>
+                                                    </tr>
 
-                                                            {/* DETAILED STATS PILL (CONDITIONAL) */}
-                                                            {showInfo && (
-                                                                <div className="flex justify-end pt-1 animate-fade-in">
-                                                                    <div className="text-[9px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 font-bold flex gap-2 shadow-sm items-center">
-                                                                        <span className="text-blue-500">P <span className="text-gray-400 font-normal">{comp.scaledProtein}</span></span>
-                                                                        <span className="text-blue-400">C <span className="text-gray-400 font-normal">{comp.scaledCarbs}</span></span>
-                                                                        <span className="text-yellow-500">F <span className="text-gray-400 font-normal">{comp.scaledFats}</span></span>
-                                                                        <div className="h-3 w-px bg-gray-200 mx-1"></div>
-                                                                        <span className="text-[#2E7D6B]">{comp.scaledCalories} kcal</span>
+                                                    {/* INGREDIENT ROWS (EXPANDABLE) */}
+                                                    {isExpanded && item.composition?.map((comp, idx) => (
+                                                        <tr key={`${item.uuid}_${idx}`} className="bg-gray-50/50 hover:bg-gray-50 transition-colors group/ing animate-fade-in">
+                                                            <td className="p-1 sm:p-2 pl-4 sm:pl-12 border-r border-gray-100 border-dashed relative sticky left-0 bg-gray-50/50 group-hover:bg-gray-50 z-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
+                                                                <div className="flex items-center justify-between gap-1 sm:gap-4">
+                                                                    <div className="flex items-center gap-1 sm:gap-2 flex-1 relative min-w-0">
+                                                                        <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
+                                                                        <span className="text-[10px] sm:text-xs text-gray-600 truncate">{comp.name}</span>
+                                                                        {/* Inline Weight Input */}
+                                                                        <div className="flex items-center bg-white border border-gray-200 rounded px-1 ml-auto shrink-0">
+                                                                            <input
+                                                                                className="w-8 sm:w-10 text-right text-[9px] sm:text-[10px] outline-none font-bold text-gray-700 p-0.5 sm:p-1"
+                                                                                value={comp.scaledWeight}
+                                                                                onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
+                                                                            />
+                                                                            <span className="text-[8px] sm:text-[9px] text-gray-400 ml-0.5">g</span>
+                                                                        </div>
                                                                     </div>
+                                                                    <button
+                                                                        onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
+                                                                        className="text-gray-400 hover:text-[#2E7D6B] p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
+                                                                        title="Swap Ingredient"
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteIngredient(slot, item.uuid, idx)}
+                                                                        className="text-gray-400 hover:text-red-500 p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
+                                                                        title="Delete Ingredient"
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                    </button>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
-                                            <div className="text-gray-400 text-xs mb-3 italic">No meals added yet</div>
-                                            <button onClick={() => { setSearchModal({ open: true, slot }); setSearchValue("") }} className="text-xs bg-[#2E7D6B] text-white px-4 py-2 rounded-xl shadow-lg shadow-[#2E7D6B]/20 hover:bg-[#256a5b] transition-all font-bold">+ Add Food</button>
-                                        </div>
-                                    )}
+                                                            </td>
+                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-500">{comp.scaledCalories}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledProtein}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledCarbs}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledFats}</td>
+                                                        </tr>
+                                                    ))}
 
-                                    {items.length > 0 && <button onClick={() => { setSearchModal({ open: true, slot }); setSearchValue("") }} className="w-full mt-2 py-2 border border-dashed border-[#2E7D6B]/30 text-[#2E7D6B] rounded-xl text-xs font-bold hover:bg-[#2E7D6B]/5 transition-all">Add More Items</button>}
+                                                    {/* SMART MACRO SUGGESTIONS UI */}
+                                                    {isExpanded && (
+                                                        <>
+                                                            {/* Expanded Meal Totals Summary */}
+                                                            <tr className="bg-gray-100/50 sm:bg-gray-50/30 border-b border-gray-100">
+                                                                <td className="p-2 pl-4 sm:pl-12 text-[10px] sm:text-xs font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
+                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-700">{item.calculatedCalories}</td>
+                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.protein}</td>
+                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.carbs}</td>
+                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.fats}</td>
+                                                            </tr>
+
+                                                            <tr>
+                                                                <td colSpan="5" className="p-0 border-b border-gray-100 bg-[#f9fafb]">
+                                                                    <div className="p-2 sm:p-4">
+                                                                        <div className="flex gap-2 sm:gap-4 mb-2 sm:mb-3 border-b border-gray-200">
+                                                                            {['Protein', 'Carb', 'Fat'].map(macro => (
+                                                                                <button
+                                                                                    key={macro}
+                                                                                    onClick={() => setActiveBoosterTab(prev => ({ ...prev, [item.uuid]: macro }))}
+                                                                                    className={`pb-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider relative ${activeBoosterTab[item.uuid] === macro ? 'text-[#2E7D6B]' : 'text-gray-400 hover:text-gray-600'}`}
+                                                                                >
+                                                                                    {/* Mobile: Short Text, Desktop: Full Text */}
+                                                                                    <span className="sm:hidden">{macro}</span>
+                                                                                    <span className="hidden sm:inline">{macro === 'Protein' ? '💪 Add Protein' : macro === 'Carb' ? '🌾 Add Carbs' : '🥑 Add Fats'}</span>
+
+                                                                                    {activeBoosterTab[item.uuid] === macro && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#2E7D6B]"></div>}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+
+                                                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                                            {foodDatabase.filter(f => {
+                                                                                const tab = activeBoosterTab[item.uuid] || 'Protein';
+                                                                                const catMatch = tab === 'Protein' ? f.category === 'Protein Source' : tab === 'Carb' ? f.category === 'Carb Source' : f.category === 'Fat Source';
+
+                                                                                // Apply Diet Filters
+                                                                                let dietMatch = true;
+                                                                                if (preferences.dietPreference === 'Vegetarian') {
+                                                                                    dietMatch = f.type === 'veg' && f.type !== 'egg' && f.type !== 'non-veg';
+                                                                                } else if (preferences.dietPreference === 'Eggetarian') {
+                                                                                    dietMatch = (f.type === 'veg' || f.type === 'egg') && f.type !== 'non-veg';
+                                                                                }
+
+                                                                                return catMatch && dietMatch && !f.isCombo; // Don't suggest combos as boosters
+                                                                            }).slice(0, 8).map(booster => (
+                                                                                <button
+                                                                                    key={booster.id}
+                                                                                    onClick={() => handleBoostAdd(slot, item.uuid, booster)}
+                                                                                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 text-left hover:border-[#2E7D6B] hover:shadow-md transition-all group/boost"
+                                                                                >
+                                                                                    <div className="font-bold text-[10px] text-gray-700 truncate mb-1 group-hover/boost:text-[#2E7D6B]">{booster.name}</div>
+                                                                                    <div className="text-[9px] text-gray-400">
+                                                                                        +{Math.round((booster.calories / (booster.ediblePortion || 100)) * 50)} kcal
+                                                                                    </div>
+                                                                                    <div className="flex gap-1 mt-1">
+                                                                                        {booster.protein > 5 && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 rounded">High Pro</span>}
+                                                                                        {booster.fats > 10 && <span className="text-[8px] bg-yellow-50 text-yellow-600 px-1 rounded">Good Fast</span>}
+                                                                                    </div>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        </>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+
+                                        {/* FOOTER / TOTALS FOR SLOT */}
+                                        <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">
+                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-[10px] sm:text-xs uppercase text-gray-500 tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                <span>Totals</span>
+                                                <button onClick={() => setInlineSearch({ active: true, slot, type: 'ADD', query: '' })} className="text-[9px] sm:text-[10px] bg-[#2E7D6B] text-white px-2 py-1 rounded hover:bg-[#256a5b] whitespace-nowrap shadow-sm">
+                                                    + Add Items
+                                                </button>
+                                            </td>
+                                            <td className={`p-2 sm:p-3 text-center text-xs sm:text-sm ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalF}</td>
+                                        </tr>
+                                    </tbody>
+                                );
+                            })}
+                        </table>
+
+                        {
+                            !slots.some(s => plan[currentDay]?.[s]?.length > 0) && (
+                                <div className="p-12 text-center text-gray-400 text-xs sm:text-sm">
+                                    No meals planned yet. Use the headers above to add items.
                                 </div>
-                            )}
+                            )
+                        }
+                    </div>
+                </div>
+            </div>
+
+            {/* FIXED SEARCH OVERLAY MODAL */}
+            {inlineSearch.active && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setInlineSearch(prev => ({ ...prev, active: false }))}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[60vh] animate-scale-up" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <div className="font-bold text-gray-700 text-sm">
+                                {inlineSearch.type === 'ADD' ? `Add to ${inlineSearch.slot}`
+                                    : inlineSearch.type === 'MEAL' ? 'Swap Meal'
+                                        : 'Swap Ingredient'}
+                            </div>
+                            <button onClick={() => setInlineSearch(prev => ({ ...prev, active: false }))} className="p-1 rounded-full hover:bg-gray-200">
+                                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
                         </div>
-                    );
-                })}
-            </div>
 
-            {/* BOTTOM SAVE BAR */}
-            <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/50 z-30 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                <button onClick={() => setSaveModalOpen(true)} className="w-full py-4 bg-[#2E7D6B] text-white rounded-2xl font-bold text-lg shadow-[#FFD166]/30 shadow-lg hover:bg-[#ffda85] hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                    Save Meal Plan
-                </button>
-            </div>
+                        {/* Input */}
+                        <div className="p-4 pb-2">
+                            <input
+                                autoFocus
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B]/10"
+                                placeholder="Type to search..."
+                                value={inlineSearch.query}
+                                onChange={e => setInlineSearch(prev => ({ ...prev, query: e.target.value }))}
+                            />
+                        </div>
 
-            {/* MODALS */}
+                        {/* Results List */}
+                        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
+                            {/* Filter Logic: 
+                                 - ADD/MEAL: Only Cooked Meals 
+                                 - ING: Only Raw Ingredients 
+                             */}
+                            {foodDatabase.filter(f => {
+                                // 1. Context Filtering
+                                let contextMatch = true;
+                                if (inlineSearch.type === 'ADD' || inlineSearch.type === 'MEAL') {
+                                    const slot = inlineSearch.slot;
+                                    if (slot === 'snacks') {
+                                        // Snacks: Strict category match
+                                        contextMatch = f.category === 'Snacks';
+                                    } else if (slot === 'breakfast') {
+                                        contextMatch = f.category === 'Breakfast';
+                                    } else {
+                                        // Lunch & Dinner: Match slot name OR 'Main' (excluding Breakfast/Snacks)
+                                        contextMatch = (f.category.toLowerCase().includes(slot) || f.category === 'Main') && f.category !== 'Breakfast' && f.category !== 'Snacks';
+                                    }
+                                    // Ensure we are looking for cooked meals for these slots (mostly)
+                                    contextMatch = contextMatch && f.isCooked;
+                                } else if (inlineSearch.type === 'ING') {
+                                    // Ingredient Swap:
+                                    const currentItems = plan[currentDay]?.[inlineSearch.slot] || [];
+                                    const meal = currentItems.find(i => i.uuid === inlineSearch.itemUuid);
+                                    const ing = meal?.composition?.[inlineSearch.ingIdx];
 
-            {/* Search Modal */}
-            {
-                searchModal.open && (
-                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setSearchModal({ open: false, slot: null })}></div>
-                        <div className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto text-[#1F2933] relative z-10">
-                            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-base capitalize pl-2">Add to {searchModal.slot}</h3>
-                                <button onClick={() => setSearchModal({ open: false })} className="p-2 bg-gray-200 rounded-full text-gray-500 hover:bg-gray-300"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                            </div>
-                            <div className="p-4 bg-gray-50 border-b border-gray-100 pb-2">
-                                <input
-                                    className="w-full bg-white border border-gray-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-[#2E7D6B] shadow-sm"
-                                    placeholder="Search food database..."
-                                    autoFocus
-                                    value={searchValue}
-                                    onChange={e => setSearchValue(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
-                                {foodDatabase.filter(f => (!searchValue || f.name.toLowerCase().includes(searchValue.toLowerCase())) && (searchModal.slot === 'snacks' ? f.category === 'Snacks' : true))
-                                    .slice(0, 20).map(item => (
-                                        <button key={item.id} onClick={() => {
-                                            const slot = searchModal.slot;
-                                            const currentItems = plan[currentDay]?.[slot] || [];
-                                            const targetCals = stats.mealSplit[slot] || 600;
+                                    // Helper to guess category if missing (for legacy/stale plan data)
+                                    const getCategory = (item) => {
+                                        if (item?.category) return item.category;
+                                        if (!item?.name) return null;
+                                        const n = item.name.toLowerCase();
 
-                                            // Smart Distribution: Split total target among all items (existing + new)
-                                            const newTotalItems = currentItems.length + 1;
-                                            const calsPerItem = Math.floor(targetCals / newTotalItems);
+                                        // CARBS
+                                        if (n.match(/rice|roti|oats|bread|potato|quinoa|dosa|idli|poha|flour|wheat|pasta|corn|millet|upma|semolina|cereal|chapati|phulka|kulcha|naan/)) return 'Carb Source';
 
-                                            // 1. Re-scale EXISTING items
-                                            const updatedExistingItems = currentItems.map(existing => ({
-                                                ...createItemInstance(existing, calsPerItem),
-                                                uuid: existing.uuid // Preserve identity
-                                            }));
+                                        // PROTEIN
+                                        if (n.match(/chicken|egg|paneer|dal|yogurt|curd|soya|fish|prawn|tofu|whey|chana|rajma|sambar|lentil|gram|besan|turkey|duck|meat|beef|pork|mutton|peas|kidney bean/)) return 'Protein Source';
 
-                                            // 2. Create NEW item scaled
-                                            const newItem = createItemInstance(item, calsPerItem);
+                                        // FATS
+                                        if (n.match(/oil|butter|ghee|seed|nut|almond|walnut|chutney|avocado|cream|mayo|cheese|olive|coconut|peanut/)) return 'Fat Source';
 
-                                            const newSlotList = [...updatedExistingItems, newItem];
+                                        // VEGETABLES
+                                        if (n.match(/veg|salad|spinach|broccoli|mushroom|bean|carrot|tomato|onion|cucumber|capsicum|pepper|gourd|okra|brinjal|cabbage|cauliflower|lettuce|mix veg|saute/)) return 'Vegetables';
 
-                                            setPlan(p => ({
-                                                ...p,
-                                                [currentDay]: {
-                                                    ...p[currentDay],
-                                                    [slot]: newSlotList
-                                                }
-                                            }));
-                                            setSearchModal({ open: false });
-                                        }} className="w-full text-left p-4 rounded-2xl border border-transparent hover:border-[#2E7D6B]/30 hover:bg-white transition-all flex justify-between items-center bg-white shadow-sm hover:shadow-md group">
-                                            <div>
-                                                <div className="font-bold text-gray-800 text-sm group-hover:text-[#2E7D6B] transition-colors">{item.name}</div>
-                                                <div className="text-[10px] text-gray-400 font-medium">{item.calories} kcal <span className="text-gray-300">•</span> {item.servingSize}</div>
-                                            </div>
-                                            <div className="w-8 h-8 rounded-full bg-[#2E7D6B]/10 text-[#2E7D6B] flex items-center justify-center text-lg font-bold group-hover:bg-[#2E7D6B] group-hover:text-white transition-all">+</div>
-                                        </button>
-                                    ))
+                                        // LIQUID / OTHERS
+                                        if (n.match(/tea|coffee|milk|buttermilk|soup|rasam|water|juice|drink|shak|beverage/)) return 'Liquid';
+
+                                        return null;
+                                    };
+
+                                    if (ing) {
+                                        const targetCategory = getCategory(ing);
+                                        // RELAXED FILTER: 
+                                        // 1. Don't enforce type (Veg/Non-Veg) strict match here. 
+                                        //    Let global Diet Preference filter handle user restrictions.
+                                        // 2. Prioritize Category Matching (e.g., Protein Source -> Protein Source).
+
+                                        if (targetCategory && targetCategory !== 'General') {
+                                            // Strong Category Match: Allow Cooked items, and filter out explicit "(Raw)" items
+                                            contextMatch = (f.category === targetCategory);
+                                        } else {
+                                            // Fallback: Default to Cooked items if we don't know the category
+                                            contextMatch = f.isCooked;
+                                        }
+
+                                        // GLOBAL RAW FILTER for Ingredient Swaps:
+                                        // Ensure we don't show items explicitly marked as "(Raw)" unless user searches for them specificially? 
+                                        // User asked "no raw ones", so we hide them.
+                                        if (f.name.toLowerCase().includes('(raw)')) {
+                                            contextMatch = false;
+                                        }
+
+                                    } else {
+                                        contextMatch = f.isCooked;
+                                    }
                                 }
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
-            {/* Swap Modal */}
-            {
-                swapModal.open && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#1F2933]">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSwapModal({ open: false })}></div>
-                        <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[70vh] animate-scale-up">
-                            <div className="p-5 bg-gray-50 border-b">
-                                <h3 className="font-bold text-center text-sm uppercase tracking-wide text-gray-500">Swap {swapModal.mode === 'MEAL' ? 'Meal' : 'Ingredient'}</h3>
-                                <p className="text-xs text-center font-bold text-[#1F2933] mt-1 bg-white inline-block px-3 py-1 rounded-full border border-gray-200 shadow-sm mx-auto flex items-center justify-center">
-                                    {swapModal.mode === 'MEAL' ? swapModal.originalItem?.name : swapModal.originalItem.composition[swapModal.originalIndex].name}
-                                </p>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-3 bg-gray-50 space-y-2">
-                                {swapModal.candidates.length > 0 ? swapModal.candidates.map((c, i) => (
-                                    <button key={i} onClick={() => confirmSwap(c)} className="w-full text-left p-3 bg-white rounded-xl border border-gray-100 hover:border-[#2E7D6B] hover:shadow-md transition-all group">
-                                        <div className="font-bold text-sm text-gray-800 group-hover:text-[#2E7D6B] transition-colors">{c.name}</div>
-                                        <div className="flex gap-2 mt-2 text-[10px]">
-                                            <span className="font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{swapModal.mode === 'MEAL' ? (c.calculatedCalories || c.scaledCalories) : c.scaledCalories} kcal</span>
-                                            <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">P:{swapModal.mode === 'MEAL' ? c.macros.protein : c.scaledProtein}</span>
-                                            <span className="text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded">C:{swapModal.mode === 'MEAL' ? c.macros.carbs : c.scaledCarbs}</span>
-                                            <span className="text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">F:{swapModal.mode === 'MEAL' ? c.macros.fats : c.scaledFats}</span>
-                                        </div>
-                                    </button>
-                                )) : (
-                                    <div className="text-center py-8">
-                                        <div className="text-3xl mb-3 grayscale opacity-50">🥗</div>
-                                        <div className="text-gray-500 font-bold text-sm">No alternatives found</div>
-                                        <div className="text-gray-400 text-xs mt-1">Try searching for other items manually</div>
+                                // GLOBAL: User Preferences Filtering (Diet & Cuisine)
+                                // Diet Logic: Updated to handle 'egg' type and defensive spelling
+                                const pref = preferences.dietPreference;
+
+                                if (pref === 'Vegetarian') {
+                                    // Strictly allow only 'veg'.
+                                    contextMatch = contextMatch && f.type === 'veg';
+                                    // DOUBLE SAFETY: Explicitly exclude non-veg/egg (though type check covers it)
+                                    if (f.type === 'non-veg' || f.type === 'egg') contextMatch = false;
+
+                                } else if (pref === 'Eggetarian' || pref === 'Eggitarian') {
+                                    // Allow 'veg' OR 'egg'.
+                                    contextMatch = contextMatch && (f.type === 'veg' || f.type === 'egg');
+                                    // DOUBLE SAFETY: Explicitly exclude 'non-veg' (Chicken/Fish)
+                                    if (f.type === 'non-veg') contextMatch = false;
+                                }
+
+                                // Cuisine (if not Mixed/All)
+                                if (preferences.cuisineStyle !== 'Mixed' && preferences.cuisineStyle !== 'All') {
+                                    contextMatch = contextMatch && (f.region === preferences.cuisineStyle || f.region === 'All' || f.region === 'International');
+                                }
+
+                                // 2. Query Filtering
+                                const queryMatch = f.name.toLowerCase().includes(inlineSearch.query.toLowerCase());
+
+                                return contextMatch && queryMatch;
+                            }).slice(0, 20).map(res => (
+                                <button
+                                    key={res.id}
+                                    onClick={() => handleSearchSelect(res)}
+                                    className="w-full text-left p-3 rounded-xl hover:bg-[#2E7D6B]/5 border border-transparent hover:border-[#2E7D6B]/30 transition-all group flex justify-between items-center"
+                                >
+                                    <div>
+                                        <div className="font-bold text-gray-800 text-sm group-hover:text-[#2E7D6B]">{res.name}</div>
+                                        <div className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{res.calories} kcal • {res.servingSize}</div>
                                     </div>
+                                    {inlineSearch.type === 'ADD' && <div className="text-[#2E7D6B] font-bold text-lg">+</div>}
+                                </button>
+                            ))}
+
+                            {foodDatabase.filter(f => {
+                                // Duplicate logic for "No matches" check - simplifying for rendering
+                                // Ideally extract to helper, but inline for now to avoid massive refactor
+                                let contextMatch = true;
+                                if (inlineSearch.type === 'ADD' || inlineSearch.type === 'MEAL') {
+                                    const slot = inlineSearch.slot;
+                                    if (slot === 'snacks') contextMatch = f.category === 'Snacks';
+                                    else if (slot === 'breakfast') contextMatch = f.category === 'Breakfast';
+                                    else contextMatch = (f.category.toLowerCase().includes(slot) || f.category === 'Main') && f.category !== 'Breakfast' && f.category !== 'Snacks';
+
+                                    // Preferences Check for "No Matches" logic
+                                    if (preferences.dietPreference === 'Vegetarian') contextMatch = contextMatch && f.type === 'veg';
+                                    else if (preferences.dietPreference === 'Eggetarian') contextMatch = contextMatch && (f.type === 'veg' || f.type === 'egg');
+
+                                    if (preferences.cuisineStyle !== 'Mixed' && preferences.cuisineStyle !== 'All') {
+                                        contextMatch = contextMatch && (f.region === preferences.cuisineStyle || f.region === 'All' || f.region === 'International');
+                                    }
+                                } else if (inlineSearch.type === 'ING') {
+                                    const currentItems = plan[currentDay]?.[inlineSearch.slot] || [];
+                                    const meal = currentItems.find(i => i.uuid === inlineSearch.itemUuid);
+                                    const ing = meal?.composition?.[inlineSearch.ingIdx];
+                                    if (ing) contextMatch = f.type === ing.type && (ing.category && ing.category !== 'General' ? f.category === ing.category : true);
+                                }
+                                return contextMatch && f.name.toLowerCase().includes(inlineSearch.query.toLowerCase());
+                            }).length === 0 && (
+                                    <div className="text-center py-8 text-gray-400 text-xs">No matches found for "{inlineSearch.query}" in this category</div>
                                 )}
-                            </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Save Modal */}
             {saveModalOpen && (
@@ -759,10 +994,7 @@ const MealPlannerPage = () => {
                     <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative z-10 transform transition-all animate-slide-up-mobile text-center">
                         <div className="w-12 h-12 bg-[#FFD166] rounded-full flex items-center justify-center text-2xl mx-auto mb-4 text-white shadow-lg shadow-[#FFD166]/40">💾</div>
                         <h3 className="text-xl font-bold mb-2">Save Meal Plan</h3>
-                        <p className="text-xs text-gray-400 mb-6 px-4">Give your plan a unique name to easily find it later in your library.</p>
-
                         <div className="mb-6 text-left">
-                            <label className="text-[10px] font-bold text-gray-400 ml-2 mb-1 block uppercase tracking-wide">Plan Name</label>
                             <input
                                 className="w-full bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] p-3 rounded-2xl font-bold text-lg outline-none text-gray-800 placeholder-gray-300 transition-all text-center"
                                 placeholder="My Awesome Plan"
@@ -771,16 +1003,25 @@ const MealPlannerPage = () => {
                                 autoFocus
                             />
                         </div>
-
                         <div className="flex gap-3">
                             <button onClick={() => setSaveModalOpen(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
-                            <button onClick={handleSavePlan} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all">Save Now</button>
+                            <button onClick={() => { /* Save Logic */ setSaveModalOpen(false); }} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all">Save Now</button>
                         </div>
                     </div>
                 </div>
             )}
-
-        </div >
+            {/* FIXED FOOTER */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex items-center gap-3">
+                <button onClick={handleDownloadExcel} className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Download Excel
+                </button>
+                <button onClick={() => setSaveModalOpen(true)} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                    Save Plan
+                </button>
+            </div>
+        </div>
     );
 };
 

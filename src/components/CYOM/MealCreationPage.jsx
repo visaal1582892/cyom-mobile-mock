@@ -168,7 +168,7 @@ const MealCreationPage = () => {
                         </div>
                     </div>
 
-                    <div className="mt-[15%] bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[32px] shadow-2xl border border-white/50 space-y-4 text-[#1F2933]">
+                    <div className="mt-8 bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[32px] shadow-2xl border border-white/50 space-y-4 text-[#1F2933]">
 
                         {/* Section: Body Metrics */}
                         <div className="grid grid-cols-2 gap-3">
@@ -178,6 +178,9 @@ const MealCreationPage = () => {
 
                         {/* Section: Activity & Targets */}
                         <div className="grid grid-cols-2 gap-3">
+
+                            <InputField label="Tgt Wt Loss/Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" />
+
                             <div className="relative group">
                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Activity Level</label>
                                 <div className="relative">
@@ -199,7 +202,6 @@ const MealCreationPage = () => {
                                 </div>
                             </div>
 
-                            <InputField label="Tgt Wt Loss/Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" />
                         </div>
 
 
@@ -216,7 +218,7 @@ const MealCreationPage = () => {
                                     >
                                         <option>Vegetarian</option>
                                         <option>Non-Vegetarian</option>
-                                        <option>Eggitarian</option>
+                                        <option>Eggetarian</option>
                                     </select>
                                     <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
