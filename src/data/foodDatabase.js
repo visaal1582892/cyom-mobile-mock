@@ -578,31 +578,82 @@ const staples = [
         id: 5004, name: "Dal Fry", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 116, protein: 6, carbs: 12, fats: 5,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Lentils (Dal)", weight: 60 },
+            { name: "Onion & Tomato", weight: 25 },
+            { name: "Ghee / Oil", weight: 10 },
+            { name: "Spices & Garlic", weight: 5 }
+        ]
     },
     {
         id: 5005, name: "Chicken Curry", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "non-veg", calories: 140, protein: 15, carbs: 6, fats: 7,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Chicken (Skinless)", weight: 70 },
+            { name: "Onion & Tomato", weight: 20 },
+            { name: "Ginger Garlic Paste", weight: 5 },
+            { name: "Cooking Oil & Spices", weight: 5 }
+        ]
     },
     {
         id: 5006, name: "Paneer Butter Masala", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 230, protein: 8, carbs: 10, fats: 18,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Paneer", weight: 60 },
+            { name: "Tomato Puree", weight: 20 },
+            { name: "Butter/Cream", weight: 15 },
+            { name: "Spices", weight: 5 }
+        ]
     },
     {
         id: 5007, name: "Mixed Vegetable Curry", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 90, protein: 3, carbs: 8, fats: 5,
         category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Carrot, Peas, Beans", weight: 70 },
+            { name: "Potato", weight: 15 },
+            { name: "Gravy Base", weight: 10 },
+            { name: "Oil", weight: 5 }
+        ]
     },
     {
         id: 5008, name: "Grilled Chicken Breast", subType: "Main", region: "International",
         ediblePortion: 100, type: "non-veg", calories: 165, protein: 31, carbs: 0, fats: 3.6,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
         composition: []
+    },
+    {
+        id: 5009, name: "Rajma Curry", subType: "Curry", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 120, protein: 6, carbs: 14, fats: 5,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Kidney Beans (Rajma)", weight: 60 },
+            { name: "Onion & Tomato Gravy", weight: 30 },
+            { name: "Ginger Garlic Paste", weight: 5 },
+            { name: "Oil & Spices", weight: 5 }
+        ]
+    },
+    {
+        id: 5010, name: "Sambar", subType: "Curry", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 55, protein: 2, carbs: 10, fats: 1,
+        category: "Protein Source", servingSize: "1 Bowl", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Arhar Dal (Lentils)", weight: 30 },
+            { name: "Mixed Vegetables", weight: 60 },
+            { name: "Tamarind & Spices", weight: 10 }
+        ]
+    },
+    {
+        id: 5011, name: "Coconut Chutney", subType: "Condiment", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 200, protein: 2, carbs: 6, fats: 18,
+        category: "Fat Source", servingSize: "1 Serving", isCooked: false, isCombo: false,
+        composition: [
+            { name: "Fresh Coconut", weight: 70 },
+            { name: "Roasted Gram", weight: 15 },
+            { name: "Tempering (Oil/Curry Leaves)", weight: 15 }
+        ]
     }
 ];
 

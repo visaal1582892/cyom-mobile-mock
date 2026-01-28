@@ -51,6 +51,23 @@ const MealPlannerPage = () => {
     const [saveModalOpen, setSaveModalOpen] = useState(false);
     const [planName, setPlanName] = useState("");
     const [toast, setToast] = useState(null);
+    const [infoModalOpen, setInfoModalOpen] = useState(false);
+    const [infoItem, setInfoItem] = useState(null);
+
+    const handleShowInfo = (e, item) => {
+        e.stopPropagation();
+        let fullItem = item;
+        // If it's a component (has a name but maybe no composition), 
+        // check if we can find a more detailed version in DB
+        if (!item.composition || item.composition.length === 0) {
+            const dbMatch = foodDatabase.find(f => f.name === item.name);
+            if (dbMatch && dbMatch.composition && dbMatch.composition.length > 0) {
+                fullItem = dbMatch;
+            }
+        }
+        setInfoItem(fullItem);
+        setInfoModalOpen(true);
+    };
 
     // Helpers
     const parseServingWeight = (item) => {
@@ -591,8 +608,8 @@ const MealPlannerPage = () => {
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                         <div>
-                            <div className="font-black text-base sm:text-lg text-[#2E7D6B] tracking-tight">MEAL PLANNER</div>
-                            <div className="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest">{userData.name} • Day {currentDay}</div>
+                            <div className="font-black text-lg sm:text-xl text-[#2E7D6B] tracking-tight">MEAL PLANNER</div>
+                            <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-widest">{userData.name} • Day {currentDay}</div>
                         </div>
                     </div>
 
@@ -622,12 +639,12 @@ const MealPlannerPage = () => {
                         {/* Calories */}
                         <div className="flex items-center gap-2 sm:gap-3">
                             <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 sm:border-4 border-[#2E7D6B] flex items-center justify-center shrink-0">
-                                <span className="text-[8px] sm:text-[10px] font-black text-[#2E7D6B]">{Math.round((dailyTotal / (stats.targetCalories || 1)) * 100)}%</span>
+                                <span className="text-xs sm:text-sm font-black text-[#2E7D6B]">{Math.round((dailyTotal / (stats.targetCalories || 1)) * 100)}%</span>
                             </div>
                             <div>
-                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase tracking-wider">Target</div>
-                                <div className="text-xs sm:text-sm font-black text-gray-800 leading-tight">
-                                    {dailyTotal} <span className="text-gray-400 text-[9px] sm:text-[10px] font-medium">/ {stats.targetCalories}</span>
+                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider">Target</div>
+                                <div className="text-sm sm:text-base font-black text-gray-900 leading-tight">
+                                    {dailyTotal} <span className="text-gray-400 text-xs font-medium">/ {stats.targetCalories}</span>
                                 </div>
                             </div>
                         </div>
@@ -636,24 +653,24 @@ const MealPlannerPage = () => {
                         <div className="flex items-center gap-2 sm:gap-6">
                             {/* Protein */}
                             <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Prot</div>
-                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyProtein} <span className="text-gray-300">/ {targetP}</span></div>
+                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Prot</div>
+                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyProtein} <span className="text-gray-300">/ {targetP}</span></div>
                                 <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
                                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min((dailyProtein / (targetP || 1)) * 100, 100)}%` }}></div>
                                 </div>
                             </div>
                             {/* Carbs */}
                             <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Carbs</div>
-                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyCarbs} <span className="text-gray-300">/ {targetC}</span></div>
+                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Carbs</div>
+                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyCarbs} <span className="text-gray-300">/ {targetC}</span></div>
                                 <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
                                     <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min((dailyCarbs / (targetC || 1)) * 100, 100)}%` }}></div>
                                 </div>
                             </div>
                             {/* Fats */}
                             <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Fats</div>
-                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyFats} <span className="text-gray-300">/ {targetF}</span></div>
+                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Fats</div>
+                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyFats} <span className="text-gray-300">/ {targetF}</span></div>
                                 <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
                                     <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((dailyFats / (targetF || 1)) * 100, 100)}%` }}></div>
                                 </div>
@@ -691,22 +708,22 @@ const MealPlannerPage = () => {
                                 const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
 
                                 return (
-                                    <tbody key={slot} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-sm">
+                                    <tbody key={slot} className="border-b border-gray-100 last:border-0 text-sm sm:text-base">
                                         {/* SECTION HEADER / TARGETS */}
                                         <tr className="bg-[#2E7D6B]/5">
                                             <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-[#f0fdf9] z-10 border-r border-[#2E7D6B]/10 shadow-[2px_0_5px_-2px_rgba(46,125,107,0.1)]">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base sm:text-lg">{slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}</span>
                                                     <div>
-                                                        <div className="font-black text-xs sm:text-sm uppercase text-[#2E7D6B] tracking-wide">{slot}</div>
-                                                        <div className="text-[8px] sm:text-[10px] text-gray-400 font-medium">Requirements</div>
+                                                        <div className="font-black text-sm sm:text-base uppercase text-[#2E7D6B] tracking-wide">{slot}</div>
+                                                        <div className="text-[10px] sm:text-xs text-gray-400 font-medium">Requirements</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold border-l border-white bg-[#2E7D6B]/10">{target}</td>
-                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqP}</td>
-                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqC}</td>
-                                            <td className="p-2 sm:p-3 text-center text-gray-500 font-bold text-[10px] sm:text-xs border-l border-white">{reqF}</td>
+                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-[#2E7D6B] font-black border-l border-white bg-[#2E7D6B]/10">{target}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqF}</td>
                                         </tr>
 
                                         {/* MEAL ITEMS */}
@@ -723,7 +740,9 @@ const MealPlannerPage = () => {
                                                                     <div className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-[#2E7D6B]' : ''}`}>
                                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
                                                                     </div>
-                                                                    <span className="font-bold text-gray-800 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{item.name}</span>
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <span className="font-bold text-gray-800 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{item.name}</span>
+                                                                    </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-1 sm:gap-2">
                                                                     <button
@@ -731,7 +750,9 @@ const MealPlannerPage = () => {
                                                                         className="text-[#2E7D6B] hover:text-[#256a5b] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B]/20 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-bold"
                                                                         title="Swap Meal"
                                                                     >
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                                            <path d="M20 7H4M4 7l4-4M4 7l4 4M4 17h16m0 0l-4-4m4 4l-4 4" />
+                                                                        </svg>
                                                                     </button>
                                                                     <button
                                                                         onClick={(e) => { e.stopPropagation(); handleDeleteMeal(slot, item.uuid); }}
@@ -742,10 +763,10 @@ const MealPlannerPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-2 sm:p-3 text-center font-bold text-gray-800">{item.calculatedCalories}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.protein}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.carbs}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-xs text-gray-600">{item.macros.fats}</td>
+                                                        <td className="p-2 sm:p-3 text-center font-black text-gray-900 text-base sm:text-lg">{item.calculatedCalories}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.protein}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.carbs}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.fats}</td>
                                                     </tr>
 
                                                     {/* INGREDIENT ROWS (EXPANDABLE) */}
@@ -755,24 +776,32 @@ const MealPlannerPage = () => {
                                                                 <div className="flex items-center justify-between gap-1 sm:gap-4">
                                                                     <div className="flex items-center gap-1 sm:gap-2 flex-1 relative min-w-0">
                                                                         <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
-                                                                        <span className="text-[10px] sm:text-xs text-gray-600 truncate">{comp.name}</span>
+                                                                        <button
+                                                                            onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
+                                                                            className="text-xs sm:text-sm text-gray-600 truncate hover:text-[#2E7D6B] hover:underline transition-all text-left"
+                                                                            title="Click to Swap"
+                                                                        >
+                                                                            {comp.name}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => handleShowInfo(e, comp)}
+                                                                            className="w-3.5 h-3.5 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-[#2E7D6B] transition-colors"
+                                                                        >
+                                                                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            </svg>
+                                                                        </button>
                                                                         {/* Inline Weight Input */}
                                                                         <div className="flex items-center bg-white border border-gray-200 rounded px-1 ml-auto shrink-0">
                                                                             <input
-                                                                                className="w-8 sm:w-10 text-right text-[9px] sm:text-[10px] outline-none font-bold text-gray-700 p-0.5 sm:p-1"
+                                                                                className="w-10 sm:w-16 text-right text-xs sm:text-sm outline-none font-bold text-gray-700 p-0.5 sm:p-1"
                                                                                 value={comp.scaledWeight}
                                                                                 onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
                                                                             />
                                                                             <span className="text-[8px] sm:text-[9px] text-gray-400 ml-0.5">g</span>
                                                                         </div>
                                                                     </div>
-                                                                    <button
-                                                                        onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
-                                                                        className="text-gray-400 hover:text-[#2E7D6B] p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
-                                                                        title="Swap Ingredient"
-                                                                    >
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                                    </button>
+
                                                                     <button
                                                                         onClick={() => handleDeleteIngredient(slot, item.uuid, idx)}
                                                                         className="text-gray-400 hover:text-red-500 p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
@@ -782,10 +811,10 @@ const MealPlannerPage = () => {
                                                                     </button>
                                                                 </div>
                                                             </td>
-                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-500">{comp.scaledCalories}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledProtein}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledCarbs}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-[10px] sm:text-xs text-gray-400">{comp.scaledFats}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-500">{comp.scaledCalories}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledProtein}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledCarbs}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledFats}</td>
                                                         </tr>
                                                     ))}
 
@@ -794,11 +823,11 @@ const MealPlannerPage = () => {
                                                         <>
                                                             {/* Expanded Meal Totals Summary */}
                                                             <tr className="bg-gray-100/50 sm:bg-gray-50/30 border-b border-gray-100">
-                                                                <td className="p-2 pl-4 sm:pl-12 text-[10px] sm:text-xs font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
-                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-700">{item.calculatedCalories}</td>
-                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.protein}</td>
-                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.carbs}</td>
-                                                                <td className="p-2 text-center text-[10px] sm:text-xs font-bold text-gray-500">{item.macros.fats}</td>
+                                                                <td className="p-2 pl-4 sm:pl-12 text-xs sm:text-sm font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
+                                                                <td className="p-2 text-center text-base sm:text-lg font-black text-gray-900">{item.calculatedCalories}</td>
+                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.protein}</td>
+                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.carbs}</td>
+                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.fats}</td>
                                                             </tr>
 
                                                             <tr>
@@ -862,16 +891,16 @@ const MealPlannerPage = () => {
 
                                         {/* FOOTER / TOTALS FOR SLOT */}
                                         <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">
-                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-[10px] sm:text-xs uppercase text-gray-500 tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-xs sm:text-sm uppercase text-gray-500 font-bold tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                 <span>Totals</span>
                                                 <button onClick={() => setInlineSearch({ active: true, slot, type: 'ADD', query: '' })} className="text-[9px] sm:text-[10px] bg-[#2E7D6B] text-white px-2 py-1 rounded hover:bg-[#256a5b] whitespace-nowrap shadow-sm">
                                                     + Add Items
                                                 </button>
                                             </td>
-                                            <td className={`p-2 sm:p-3 text-center text-xs sm:text-sm ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalP}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalC}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-gray-700">{totalF}</td>
+                                            <td className={`p-2 sm:p-3 text-center text-base sm:text-lg ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
+                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalF}</td>
                                         </tr>
                                     </tbody>
                                 );
@@ -1062,6 +1091,65 @@ const MealPlannerPage = () => {
                             }).length === 0 && (
                                     <div className="text-center py-8 text-gray-400 text-xs">No matches found for "{inlineSearch.query}" in this category</div>
                                 )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Info Modal */}
+            {infoModalOpen && infoItem && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-fade-in text-[#1F2933]">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setInfoModalOpen(false)}></div>
+                    <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative z-10 transform transition-all animate-slide-up-mobile">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold truncate pr-4">{infoItem.name}</h3>
+                            <button onClick={() => setInfoModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="mb-6">
+                            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">Ingredients / Composition</div>
+                            {infoItem.composition && infoItem.composition.length > 0 ? (
+                                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                                    {infoItem.composition.map((ing, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-xl">
+                                            <span className="text-gray-700 font-medium">{ing.name}</span>
+                                            <span className="text-gray-400 text-xs">{(ing.scaledWeight || ing.weight) || ''}g</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-sm text-gray-500 italic p-8 bg-gray-50 rounded-2xl text-center">
+                                    <div className="text-2xl mb-2">🥗</div>
+                                    This is a base ingredient.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-2 border-t border-gray-100 pt-4">
+                            <div className="text-center">
+                                <div className="text-[8px] text-gray-400 font-bold uppercase">Kcal</div>
+                                <div className="text-xs font-bold text-gray-800">{infoItem.calculatedCalories || infoItem.calories}</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] text-gray-400 font-bold uppercase">Prot</div>
+                                <div className="text-xs font-bold text-gray-800">
+                                    {infoItem.macros ? infoItem.macros.protein : (infoItem.protein || 0)}g
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] text-gray-400 font-bold uppercase">Carbs</div>
+                                <div className="text-xs font-bold text-gray-800">
+                                    {infoItem.macros ? infoItem.macros.carbs : (infoItem.carbs || 0)}g
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] text-gray-400 font-bold uppercase">Fats</div>
+                                <div className="text-xs font-bold text-gray-800">
+                                    {infoItem.macros ? infoItem.macros.fats : (infoItem.fats || 0)}g
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
