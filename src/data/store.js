@@ -1,5 +1,5 @@
 export const userData = {
-    name: "User",
+    name: "Rohit",
     mobile: "9876543210",
     age: 25,
     gender: "Male",

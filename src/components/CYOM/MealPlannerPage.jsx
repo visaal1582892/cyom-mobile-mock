@@ -545,6 +545,13 @@ const MealPlannerPage = () => {
 
     const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
     const dailyTotal = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.calculatedCalories, 0) || 0), 0);
+    const dailyProtein = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.protein, 0) || 0), 0);
+    const dailyCarbs = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.carbs, 0) || 0), 0);
+    const dailyFats = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.fats, 0) || 0), 0);
+
+    const targetP = Math.round(stats.targetCalories * 0.25 / 4);
+    const targetC = Math.round(stats.targetCalories * 0.50 / 4);
+    const targetF = Math.round(stats.targetCalories * 0.25 / 9);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
@@ -562,12 +569,7 @@ const MealPlannerPage = () => {
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="text-right">
-                            <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase">Daily Total</div>
-                            <div className={`text-sm sm:text-lg font-black ${dailyTotal > stats.targetCalories ? 'text-red-500' : 'text-[#2E7D6B]'}`}>
-                                {dailyTotal} <span className="text-gray-300 text-[10px] sm:text-xs text-normal">/ {stats.targetCalories}</span>
-                            </div>
-                        </div>
+
                         <div className="flex items-center gap-2 sm:gap-3">
                             <select
                                 value={currentDay}
@@ -578,6 +580,56 @@ const MealPlannerPage = () => {
                                     <option key={d} value={d}>Day {d}</option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            {/* --- DAILY SUMMARY TAB (COMPACT) --- */}
+            <div className="max-w-7xl mx-auto mt-2 px-2 sm:px-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3">
+                    <div className="flex flex-row gap-2 sm:gap-4 justify-between items-center">
+                        {/* Calories */}
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 sm:border-4 border-[#2E7D6B] flex items-center justify-center shrink-0">
+                                <span className="text-[8px] sm:text-[10px] font-black text-[#2E7D6B]">{Math.round((dailyTotal / (stats.targetCalories || 1)) * 100)}%</span>
+                            </div>
+                            <div>
+                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase tracking-wider">Target</div>
+                                <div className="text-xs sm:text-sm font-black text-gray-800 leading-tight">
+                                    {dailyTotal} <span className="text-gray-400 text-[9px] sm:text-[10px] font-medium">/ {stats.targetCalories}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Macros PCF */}
+                        <div className="flex items-center gap-2 sm:gap-6">
+                            {/* Protein */}
+                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
+                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Prot</div>
+                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyProtein} <span className="text-gray-300">/ {targetP}</span></div>
+                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min((dailyProtein / (targetP || 1)) * 100, 100)}%` }}></div>
+                                </div>
+                            </div>
+                            {/* Carbs */}
+                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
+                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Carbs</div>
+                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyCarbs} <span className="text-gray-300">/ {targetC}</span></div>
+                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                    <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min((dailyCarbs / (targetC || 1)) * 100, 100)}%` }}></div>
+                                </div>
+                            </div>
+                            {/* Fats */}
+                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
+                                <div className="text-[8px] sm:text-[9px] text-gray-400 font-bold uppercase mb-0.5">Fats</div>
+                                <div className="text-[9px] sm:text-[11px] font-bold text-gray-700 leading-none">{dailyFats} <span className="text-gray-300">/ {targetF}</span></div>
+                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                    <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((dailyFats / (targetF || 1)) * 100, 100)}%` }}></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
