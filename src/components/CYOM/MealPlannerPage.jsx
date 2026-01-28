@@ -310,58 +310,86 @@ const MealPlannerPage = () => {
                     const targetTotalCals = item.calculatedCalories; // Keep Meal Total constant
                     const comp = [...item.composition];
                     const editedIng = comp[ingIdx];
-                    const oldWeight = editedIng.scaledWeight || 1;
+                    const oldWeight = editedIng.scaledWeight || 0; // Use 0 if undefined
                     const oldCals = editedIng.scaledCalories || 0;
 
+                    // Calculate Caloric Density (safe)
                     const calPerGram = oldWeight > 0 ? oldCals / oldWeight : 0;
+
+                    // --- LIMIT CALCULATION START ---
+                    // Calculate constraints to prevent starving other seeds to strict 0 if possible
+                    const otherIndices = comp.map((_, i) => i).filter(i => i !== ingIdx);
+                    let minBudgetForOthers = 0;
+                    if (otherIndices.length > 0) {
+                        // Reserve at least 2 calories for each other ingredient to keep them "alive" if possible
+                        minBudgetForOthers = otherIndices.length * 2;
+                    }
+
+                    const maxAllocatableCals = Math.max(0, targetTotalCals - minBudgetForOthers);
+
+                    // Determine Max Weight allowed for this item
+                    let maxWeight = 5000; // Hard max constraint
+                    if (calPerGram > 0) {
+                        const calculatedMax = Math.floor(maxAllocatableCals / calPerGram);
+                        maxWeight = Math.min(maxWeight, calculatedMax);
+                    }
+
+                    // Clamp the user input weight
+                    if (weight > maxWeight) weight = maxWeight;
+                    // --- LIMIT CALCULATION END ---
+
                     const newCals_edited = Math.round(weight * calPerGram);
 
                     // 2. Determine Remaining Budget for other ingredients
                     let remainingBudget = targetTotalCals - newCals_edited;
-                    if (remainingBudget < 0) remainingBudget = 0; // Prevent negative budget
+                    if (remainingBudget < 0) remainingBudget = 0;
 
-                    const weightRatio = oldWeight > 0 ? weight / oldWeight : 0; // Fallback ratio
+                    const baseWeight_edited = editedIng.weight || 1;
+                    const macroRatio_edited = weight / baseWeight_edited;
 
                     // Update the edited ingredient
                     comp[ingIdx] = {
                         ...editedIng,
                         scaledWeight: weight,
                         scaledCalories: newCals_edited,
-                        scaledProtein: Math.round((editedIng.scaledProtein || 0) * weightRatio),
-                        scaledCarbs: Math.round((editedIng.scaledCarbs || 0) * weightRatio),
-                        scaledFats: Math.round((editedIng.scaledFats || 0) * weightRatio)
+                        scaledProtein: Math.round((editedIng.protein || 0) * macroRatio_edited),
+                        scaledCarbs: Math.round((editedIng.carbs || 0) * macroRatio_edited),
+                        scaledFats: Math.round((editedIng.fats || 0) * macroRatio_edited)
                     };
 
                     // 3. Smart Redistribute remaining budget among OTHER ingredients
-                    const otherIndices = comp.map((_, i) => i).filter(i => i !== ingIdx);
-                    const currentOtherTotalCals = otherIndices.reduce((sum, i) => sum + (comp[i].scaledCalories || 0), 0);
+                    // Use base caloric ratios to ensure items can "recover" from 0
+                    const totalBaseCalsOfOthers = otherIndices.reduce((sum, i) => sum + (comp[i].calories || 0), 1);
 
                     if (otherIndices.length > 0) {
                         otherIndices.forEach(i => {
                             const ing = comp[i];
-                            const ingCal = ing.scaledCalories || 0;
-                            const ingWeight = ing.scaledWeight || 1;
 
-                            let newAllocatedCals = 0;
-                            if (currentOtherTotalCals > 0) {
-                                // Proportional distribution based on previous calorie contribution
-                                const prop = ingCal / currentOtherTotalCals;
-                                newAllocatedCals = remainingBudget * prop;
-                            } else {
-                                newAllocatedCals = 0;
+                            // Calculate Base Density from original/base values (preserved in object)
+                            const baseCals = ing.calories || 0;
+                            const baseWeight = ing.weight || 0;
+                            const calPerGram = baseWeight > 0 ? baseCals / baseWeight : 0;
+
+                            // Use original ratios for distribution
+                            const prop = baseCals / totalBaseCalsOfOthers;
+                            const newAllocatedCals = remainingBudget * prop;
+
+                            // Calculate new weight using Base Density
+                            let newWt = 0;
+                            if (calPerGram > 0) {
+                                newWt = Math.round(newAllocatedCals / calPerGram);
                             }
 
-                            // Scale weight based on new calories
-                            const ingRatio = ingCal > 0 ? newAllocatedCals / ingCal : 0;
-                            const newWt = Math.round(ingWeight * ingRatio);
+                            // Update Ingredient
+                            const ratio = baseWeight > 0 ? newWt / baseWeight : 0;
 
                             comp[i] = {
                                 ...ing,
                                 scaledWeight: newWt,
                                 scaledCalories: Math.round(newAllocatedCals),
-                                scaledProtein: Math.round((ing.scaledProtein || 0) * ingRatio),
-                                scaledCarbs: Math.round((ing.scaledCarbs || 0) * ingRatio),
-                                scaledFats: Math.round((ing.scaledFats || 0) * ingRatio)
+                                scaledProtein: Math.round((ing.protein || 0) * ratio),
+                                scaledCarbs: Math.round((ing.carbs || 0) * ratio),
+                                scaledFats: Math.round((ing.fats || 0) * ratio)
                             };
                         });
                     }
