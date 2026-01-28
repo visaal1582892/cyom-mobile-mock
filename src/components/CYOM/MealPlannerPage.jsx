@@ -937,7 +937,6 @@ const MealPlannerPage = () => {
                         {/* Input */}
                         <div className="p-4 pb-2">
                             <input
-                                autoFocus
                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B]/10"
                                 placeholder="Type to search..."
                                 value={inlineSearch.query}

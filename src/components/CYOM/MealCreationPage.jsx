@@ -2,6 +2,23 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 
+const InputField = ({ label, name, value, type = "text", placeholder, suffix, onChange }) => (
+    <div className="relative group">
+        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">{label}</label>
+        <div className="relative">
+            <input
+                type={type}
+                name={name}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
+            />
+            {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">{suffix}</span>}
+        </div>
+    </div>
+);
+
 const MealCreationPage = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,22 +47,7 @@ const MealCreationPage = () => {
         navigate('/login');
     };
 
-    const InputField = ({ label, name, value, type = "text", placeholder, suffix }) => (
-        <div className="relative group">
-            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">{label}</label>
-            <div className="relative">
-                <input
-                    type={type}
-                    name={name}
-                    value={value}
-                    onChange={handleChange}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
-                />
-                {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">{suffix}</span>}
-            </div>
-        </div>
-    );
+
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -172,14 +174,14 @@ const MealCreationPage = () => {
 
                         {/* Section: Body Metrics */}
                         <div className="grid grid-cols-2 gap-3">
-                            <InputField label="Current Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" />
-                            <InputField label="Current Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" />
+                            <InputField label="Current Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
+                            <InputField label="Current Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" onChange={handleChange} />
                         </div>
 
                         {/* Section: Activity & Targets */}
                         <div className="grid grid-cols-2 gap-3">
 
-                            <InputField label="Tgt Wt Loss/Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" />
+                            <InputField label="Tgt Wt Loss/Month" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
 
                             <div className="relative group">
                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Activity Level</label>
