@@ -134,16 +134,76 @@ export const foodDatabase = [
     { id: 9121, name: "Cauliflower (Raw)", subType: "Vegetable", region: "All", calories: 25, protein: 2, carbs: 5, fats: 0, category: "Vegetables", isCooked: false, type: "veg" },
 
     // --- COOKED VARIANTS (To satisfy 'No Raw' filter) ---
-    { id: 9201, name: "Cooked Pasta (Whole Wheat)", subType: "Grain", region: "International", calories: 124, protein: 5, carbs: 26, fats: 1, category: "Carb Source", isCooked: true, type: "veg" },
-    { id: 9202, name: "Boiled Chickpeas / Chana", subType: "Pulse", region: "Indian", calories: 160, protein: 9, carbs: 27, fats: 2.5, category: "Protein Source", isCooked: true, type: "veg" },
-    { id: 9203, name: "Rajma Masala / Boiled Rajma", subType: "Pulse", region: "Indian", calories: 140, protein: 9, carbs: 22, fats: 4, category: "Protein Source", isCooked: true, type: "veg" },
-    { id: 9204, name: "Grilled Fish", subType: "Protein", region: "International", calories: 120, protein: 22, carbs: 0, fats: 4, category: "Protein Source", isCooked: true, type: "non-veg" },
-    { id: 9205, name: "Garlic Prawns", subType: "Protein", region: "International", calories: 110, protein: 21, carbs: 1, fats: 3, category: "Protein Source", isCooked: true, type: "non-veg" },
-    { id: 9206, name: "Millet Upma / Porridge", subType: "Grain", region: "Indian", calories: 180, protein: 6, carbs: 32, fats: 5, category: "Carb Source", isCooked: true, type: "veg" },
-    { id: 9207, name: "Quinoa Salad / Bowl", subType: "Grain", region: "International", calories: 140, protein: 5, carbs: 22, fats: 4, category: "Carb Source", isCooked: true, type: "veg" },
-    { id: 9208, name: "Sauteed Vegetables", subType: "Vegetable", region: "All", calories: 80, protein: 2, carbs: 8, fats: 5, category: "Vegetables", isCooked: true, type: "veg" },
-    { id: 9209, name: "Mashed Potato", subType: "Vegetable", region: "International", calories: 110, protein: 2, carbs: 18, fats: 4, category: "Carb Source", isCooked: true, type: "veg" }, // Often a carb source
-    { id: 9210, name: "Sweet Potato (Boiled)", subType: "Vegetable", region: "All", calories: 90, protein: 2, carbs: 20, fats: 0, category: "Carb Source", isCooked: true, type: "veg" },
+    {
+        id: 9201, name: "Cooked Pasta (Whole Wheat)", subType: "Grain", region: "International", calories: 124, protein: 5, carbs: 26, fats: 1, category: "Carb Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Whole Wheat Pasta (Raw)", weight: 40, calories: 120, protein: 4.5, carbs: 25, fats: 0.8 },
+            { name: "Water & Salt", weight: 60, calories: 4, protein: 0.5, carbs: 1, fats: 0.2 }
+        ]
+    },
+    {
+        id: 9202, name: "Boiled Chickpeas / Chana", subType: "Pulse", region: "Indian", calories: 160, protein: 9, carbs: 27, fats: 2.5, category: "Protein Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Chickpeas (Raw)", weight: 45, calories: 155, protein: 8.5, carbs: 26, fats: 2.2 },
+            { name: "Water & Salt", weight: 55, calories: 5, protein: 0.5, carbs: 1, fats: 0.3 }
+        ]
+    },
+    {
+        id: 9203, name: "Rajma Masala / Boiled Rajma", subType: "Pulse", region: "Indian", calories: 140, protein: 9, carbs: 22, fats: 4, category: "Protein Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Kidney Beans (Raw)", weight: 40, calories: 130, protein: 8.5, carbs: 21, fats: 0.5 },
+            { name: "Gravy / Water", weight: 60, calories: 10, protein: 0.5, carbs: 1, fats: 3.5 }
+        ]
+    },
+    {
+        id: 9204, name: "Grilled Fish", subType: "Protein", region: "International", calories: 120, protein: 22, carbs: 0, fats: 4, category: "Protein Source", isCooked: true, type: "non-veg",
+        composition: [
+            { name: "Fish Fillet", weight: 95, calories: 105, protein: 21, carbs: 0, fats: 1.5 },
+            { name: "Oil & Seasoning", weight: 5, calories: 15, protein: 1, carbs: 0, fats: 2.5 }
+        ]
+    },
+    {
+        id: 9205, name: "Garlic Prawns", subType: "Protein", region: "International", calories: 110, protein: 21, carbs: 1, fats: 3, category: "Protein Source", isCooked: true, type: "non-veg",
+        composition: [
+            { name: "Prawns", weight: 90, calories: 80, protein: 20, carbs: 0.2, fats: 0.5 },
+            { name: "Garlic & Butter/Oil", weight: 10, calories: 30, protein: 1, carbs: 0.8, fats: 2.5 }
+        ]
+    },
+    {
+        id: 9206, name: "Millet Upma / Porridge", subType: "Grain", region: "Indian", calories: 180, protein: 6, carbs: 32, fats: 5, category: "Carb Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Millet (Raw)", weight: 45, calories: 145, protein: 5, carbs: 30, fats: 0.5 },
+            { name: "Vegetables & Oil", weight: 55, calories: 35, protein: 1, carbs: 2, fats: 4.5 }
+        ]
+    },
+    {
+        id: 9207, name: "Quinoa Salad / Bowl", subType: "Grain", region: "International", calories: 140, protein: 5, carbs: 22, fats: 4, category: "Carb Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Quinoa (Raw)", weight: 35, calories: 125, protein: 4.5, carbs: 21, fats: 2 },
+            { name: "Dressing & Veggies", weight: 65, calories: 15, protein: 0.5, carbs: 1, fats: 2 }
+        ]
+    },
+    {
+        id: 9208, name: "Sauteed Vegetables", subType: "Vegetable", region: "All", calories: 80, protein: 2, carbs: 8, fats: 5, category: "Vegetables", isCooked: true, type: "veg",
+        composition: [
+            { name: "Mixed Vegetables", weight: 90, calories: 35, protein: 2, carbs: 8, fats: 0.2 },
+            { name: "Cooking Oil", weight: 10, calories: 45, protein: 0, carbs: 0, fats: 4.8 }
+        ]
+    },
+    {
+        id: 9209, name: "Mashed Potato", subType: "Vegetable", region: "International", calories: 110, protein: 2, carbs: 18, fats: 4, category: "Carb Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Potato (Boiled)", weight: 85, calories: 75, protein: 1.5, carbs: 17, fats: 0.1 },
+            { name: "Butter & Milk", weight: 15, calories: 35, protein: 0.5, carbs: 1, fats: 3.9 }
+        ]
+    },
+    {
+        id: 9210, name: "Sweet Potato (Boiled)", subType: "Vegetable", region: "All", calories: 90, protein: 2, carbs: 20, fats: 0, category: "Carb Source", isCooked: true, type: "veg",
+        composition: [
+            { name: "Sweet Potato", weight: 98, calories: 88, protein: 1.8, carbs: 20, fats: 0.1 },
+            { name: "Salt", weight: 2, calories: 2, protein: 0.2, carbs: 0, fats: 0 }
+        ]
+    },
 
     // --- BREAKFAST MEALS (LEGACY PRESERVED) ---
     {
@@ -560,29 +620,38 @@ const staples = [
         id: 5001, name: "Steamed Rice", subType: "Rice", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 130, protein: 2.7, carbs: 28, fats: 0.3,
         category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false, // Updated to match usage
-        composition: []
+        composition: [
+            { name: "Raw Rice", weight: 35, calories: 125, protein: 2.5, carbs: 28, fats: 0.2 },
+            { name: "Water", weight: 65, calories: 0, protein: 0, carbs: 0, fats: 0 }
+        ]
     },
     {
         id: 5002, name: "Brown Rice", subType: "Rice", region: "International",
         ediblePortion: 100, type: "veg", calories: 111, protein: 2.6, carbs: 23, fats: 0.9,
         category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Raw Brown Rice", weight: 35, calories: 105, protein: 2.5, carbs: 22, fats: 0.8 },
+            { name: "Water", weight: 65, calories: 6, protein: 0.1, carbs: 1, fats: 0.1 }
+        ]
     },
     {
         id: 5003, name: "Roti / Chapati", subType: "Bread", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 297, protein: 10, carbs: 49, fats: 7,
         category: "Carb Source", servingSize: "1 Pc (40g)", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Whole Wheat Flour", weight: 30, calories: 100, protein: 4, carbs: 22, fats: 0.5 },
+            { name: "Water & Kneading", weight: 10, calories: 0, protein: 0, carbs: 0, fats: 0 }
+        ]
     },
     {
         id: 5004, name: "Dal Fry", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 116, protein: 6, carbs: 12, fats: 5,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
         composition: [
-            { name: "Lentils (Dal)", weight: 60 },
-            { name: "Onion & Tomato", weight: 25 },
-            { name: "Ghee / Oil", weight: 10 },
-            { name: "Spices & Garlic", weight: 5 }
+            { name: "Lentils (Dal)", weight: 60, calories: 70, protein: 5, carbs: 12, fats: 0.5 },
+            { name: "Onion & Tomato", weight: 25, calories: 15, protein: 0.5, carbs: 3, fats: 0.1 },
+            { name: "Ghee / Oil", weight: 10, calories: 80, protein: 0, carbs: 0, fats: 9 },
+            { name: "Spices & Garlic", weight: 5, calories: 10, protein: 0.5, carbs: 1, fats: 0.4 }
         ]
     },
     {
@@ -590,10 +659,10 @@ const staples = [
         ediblePortion: 100, type: "non-veg", calories: 140, protein: 15, carbs: 6, fats: 7,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
         composition: [
-            { name: "Chicken (Skinless)", weight: 70 },
-            { name: "Onion & Tomato", weight: 20 },
-            { name: "Ginger Garlic Paste", weight: 5 },
-            { name: "Cooking Oil & Spices", weight: 5 }
+            { name: "Chicken (Skinless)", weight: 70, calories: 110, protein: 22, carbs: 0, fats: 2.5 },
+            { name: "Onion & Tomato", weight: 20, calories: 12, protein: 0.5, carbs: 2.5, fats: 0.1 },
+            { name: "Ginger Garlic Paste", weight: 5, calories: 10, protein: 0.5, carbs: 1, fats: 0.4 },
+            { name: "Cooking Oil & Spices", weight: 5, calories: 45, protein: 0, carbs: 0, fats: 5 }
         ]
     },
     {
@@ -601,10 +670,10 @@ const staples = [
         ediblePortion: 100, type: "veg", calories: 230, protein: 8, carbs: 10, fats: 18,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
         composition: [
-            { name: "Paneer", weight: 60 },
-            { name: "Tomato Puree", weight: 20 },
-            { name: "Butter/Cream", weight: 15 },
-            { name: "Spices", weight: 5 }
+            { name: "Paneer", weight: 60, calories: 160, protein: 11, carbs: 2, fats: 14 },
+            { name: "Tomato Puree", weight: 20, calories: 15, protein: 0.5, carbs: 3, fats: 0.1 },
+            { name: "Butter/Cream", weight: 15, calories: 90, protein: 0.5, carbs: 1, fats: 10 },
+            { name: "Spices", weight: 5, calories: 15, protein: 1, carbs: 2, fats: 1 }
         ]
     },
     {
@@ -612,27 +681,30 @@ const staples = [
         ediblePortion: 100, type: "veg", calories: 90, protein: 3, carbs: 8, fats: 5,
         category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
         composition: [
-            { name: "Carrot, Peas, Beans", weight: 70 },
-            { name: "Potato", weight: 15 },
-            { name: "Gravy Base", weight: 10 },
-            { name: "Oil", weight: 5 }
+            { name: "Carrot, Peas, Beans", weight: 70, calories: 45, protein: 2, carbs: 9, fats: 0.2 },
+            { name: "Potato", weight: 15, calories: 12, protein: 0.3, carbs: 3, fats: 0 },
+            { name: "Gravy Base", weight: 10, calories: 20, protein: 0.5, carbs: 3, fats: 1 },
+            { name: "Oil", weight: 5, calories: 45, protein: 0, carbs: 0, fats: 5 }
         ]
     },
     {
         id: 5008, name: "Grilled Chicken Breast", subType: "Main", region: "International",
         ediblePortion: 100, type: "non-veg", calories: 165, protein: 31, carbs: 0, fats: 3.6,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
-        composition: []
+        composition: [
+            { name: "Chicken Breast", weight: 95, calories: 155, protein: 30, carbs: 0, fats: 3 },
+            { name: "Seasoning & Oil", weight: 5, calories: 10, protein: 1, carbs: 0, fats: 0.6 }
+        ]
     },
     {
         id: 5009, name: "Rajma Curry", subType: "Curry", region: "Indian",
         ediblePortion: 100, type: "veg", calories: 120, protein: 6, carbs: 14, fats: 5,
         category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
         composition: [
-            { name: "Kidney Beans (Rajma)", weight: 60 },
-            { name: "Onion & Tomato Gravy", weight: 30 },
-            { name: "Ginger Garlic Paste", weight: 5 },
-            { name: "Oil & Spices", weight: 5 }
+            { name: "Kidney Beans (Rajma)", weight: 60, calories: 75, protein: 5, carbs: 14, fats: 0.5 },
+            { name: "Onion & Tomato Gravy", weight: 30, calories: 20, protein: 0.5, carbs: 4, fats: 0.1 },
+            { name: "Ginger Garlic Paste", weight: 5, calories: 10, protein: 0.5, carbs: 1, fats: 0.4 },
+            { name: "Oil & Spices", weight: 5, calories: 45, protein: 0, carbs: 0, fats: 5 }
         ]
     },
     {
@@ -640,9 +712,9 @@ const staples = [
         ediblePortion: 100, type: "veg", calories: 55, protein: 2, carbs: 10, fats: 1,
         category: "Protein Source", servingSize: "1 Bowl", isCooked: true, isCombo: false,
         composition: [
-            { name: "Arhar Dal (Lentils)", weight: 30 },
-            { name: "Mixed Vegetables", weight: 60 },
-            { name: "Tamarind & Spices", weight: 10 }
+            { name: "Arhar Dal (Lentils)", weight: 30, calories: 35, protein: 2.5, carbs: 6, fats: 0.2 },
+            { name: "Mixed Vegetables", weight: 60, calories: 25, protein: 1, carbs: 5, fats: 0.1 },
+            { name: "Tamarind & Spices", weight: 10, calories: 15, protein: 0.5, carbs: 3, fats: 0.5 }
         ]
     },
     {
@@ -650,9 +722,237 @@ const staples = [
         ediblePortion: 100, type: "veg", calories: 200, protein: 2, carbs: 6, fats: 18,
         category: "Fat Source", servingSize: "1 Serving", isCooked: false, isCombo: false,
         composition: [
-            { name: "Fresh Coconut", weight: 70 },
-            { name: "Roasted Gram", weight: 15 },
-            { name: "Tempering (Oil/Curry Leaves)", weight: 15 }
+            { name: "Fresh Coconut", weight: 70, calories: 150, protein: 2, carbs: 8, fats: 14 },
+            { name: "Roasted Gram", weight: 15, calories: 35, protein: 2, carbs: 6, fats: 1 },
+            { name: "Tempering (Oil/Curry Leaves)", weight: 15, calories: 65, protein: 0.5, carbs: 2, fats: 6 }
+        ]
+    },
+    {
+        id: 5014, name: "Egg Curry", subType: "Curry", region: "Indian",
+        ediblePortion: 100, type: "egg", calories: 110, protein: 7, carbs: 4, fats: 7,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Boiled Egg", weight: 50, calories: 75, protein: 6.5, carbs: 0.6, fats: 5 },
+            { name: "Curry Base (Onion/Tomato/Oil)", weight: 50, calories: 35, protein: 0.5, carbs: 3.4, fats: 2 }
+        ]
+    },
+    {
+        id: 5015, name: "Egg Bhurji", subType: "Side", region: "Indian",
+        ediblePortion: 100, type: "egg", calories: 160, protein: 12, carbs: 2, fats: 11,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Egg", weight: 80, calories: 120, protein: 11, carbs: 1, fats: 8 },
+            { name: "Vegetables & Oil", weight: 20, calories: 40, protein: 1, carbs: 1, fats: 3 }
+        ]
+    },
+    {
+        id: 5012, name: "Veg Biryani", subType: "Rice", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 140, protein: 3, carbs: 24, fats: 4,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Basmati Rice", weight: 60, calories: 75, protein: 1.5, carbs: 17, fats: 0.1 },
+            { name: "Mixed Vegetables", weight: 30, calories: 45, protein: 1.5, carbs: 6, fats: 0.2 },
+            { name: "Biryani Spices & Oil", weight: 10, calories: 20, protein: 0, carbs: 1, fats: 3.7 }
+        ]
+    },
+    {
+        id: 5013, name: "Mixed Veg Raita", subType: "Side", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 80, protein: 4, carbs: 8, fats: 4,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Yogurt / Curd", weight: 80, calories: 50, protein: 3.5, carbs: 5, fats: 2.5 },
+            { name: "Cucumber & Onion", weight: 15, calories: 10, protein: 0.5, carbs: 2, fats: 0 },
+            { name: "Spices & Herbs", weight: 5, calories: 20, protein: 0, carbs: 1, fats: 1.5 }
+        ]
+    },
+    {
+        id: 5016, name: "Vegetable Poha", subType: "Main", region: "North Indian",
+        ediblePortion: 100, type: "veg", calories: 150, protein: 3, carbs: 28, fats: 4,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Poha (Flattened Rice)", weight: 70, calories: 110, protein: 2, carbs: 25, fats: 0.5 },
+            { name: "Onion & Peas", weight: 20, calories: 15, protein: 0.5, carbs: 3, fats: 0.1 },
+            { name: "Oil & Peanuts", weight: 10, calories: 25, protein: 0.5, carbs: 0, fats: 3.4 }
+        ]
+    },
+    {
+        id: 5017, name: "Vegetable Upma", subType: "Main", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 180, protein: 4, carbs: 30, fats: 5,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Semolina (Sooji)", weight: 60, calories: 130, protein: 3, carbs: 28, fats: 0.5 },
+            { name: "Vegetables (Carrot/Peas)", weight: 30, calories: 15, protein: 0.5, carbs: 2, fats: 0.1 },
+            { name: "Oil & Tempering", weight: 10, calories: 35, protein: 0.5, carbs: 0, fats: 4.4 }
+        ]
+    },
+    {
+        id: 5018, name: "Masala Dosa", subType: "Main", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 150, protein: 3, carbs: 25, fats: 4,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Dosa Crepe", weight: 60, calories: 90, protein: 2, carbs: 18, fats: 1.5 },
+            { name: "Potato Masala Filling", weight: 40, calories: 60, protein: 1, carbs: 7, fats: 2.5 }
+        ]
+    },
+    {
+        id: 5019, name: "Aloo Paratha", subType: "Main", region: "North Indian",
+        ediblePortion: 100, type: "veg", calories: 235, protein: 5, carbs: 38, fats: 8,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Whole Wheat Dough", weight: 60, calories: 140, protein: 4, carbs: 28, fats: 1 },
+            { name: "Potato Filling", weight: 35, calories: 50, protein: 1, carbs: 10, fats: 0.5 },
+            { name: "Ghee/Oil", weight: 5, calories: 45, protein: 0, carbs: 0, fats: 6.5 }
+        ]
+    },
+    {
+        id: 5020, name: "Steel-cut Oats (Cooked)", subType: "Grain", region: "International",
+        ediblePortion: 100, type: "veg", calories: 115, protein: 3.5, carbs: 20, fats: 1.8,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Raw Steel-cut Oats", weight: 30, calories: 110, protein: 3.5, carbs: 20, fats: 1.8 },
+            { name: "Water", weight: 70, calories: 5, protein: 0, carbs: 0, fats: 0 }
+        ]
+    },
+    {
+        id: 5021, name: "Pepper Chicken Breast", subType: "Main", region: "Indian",
+        ediblePortion: 100, type: "non-veg", calories: 145, protein: 22, carbs: 2, fats: 5,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Chicken Breast", weight: 85, calories: 120, protein: 21, carbs: 0, fats: 2.5 },
+            { name: "Pepper & Spices", weight: 10, calories: 10, protein: 1, carbs: 2, fats: 0.5 },
+            { name: "Oil", weight: 5, calories: 15, protein: 0, carbs: 0, fats: 2 }
+        ]
+    },
+    {
+        id: 5022, name: "Jowar Roti", subType: "Bread", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 250, protein: 7, carbs: 54, fats: 2,
+        category: "Carb Source", servingSize: "1 Pc", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Jowar Flour", weight: 70, calories: 240, protein: 7, carbs: 52, fats: 2 },
+            { name: "Water", weight: 30, calories: 10, protein: 0, carbs: 2, fats: 0 }
+        ]
+    },
+    {
+        id: 5023, name: "Prawn Stir Fry", subType: "Main", region: "International",
+        ediblePortion: 100, type: "non-veg", calories: 100, protein: 15, carbs: 3, fats: 3,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Prawns", weight: 80, calories: 70, protein: 14, carbs: 0.2, fats: 0.5 },
+            { name: "Vegetables (Capsicum/Onion)", weight: 15, calories: 10, protein: 0.5, carbs: 2, fats: 0 },
+            { name: "Oil & Sauces", weight: 5, calories: 20, protein: 0.5, carbs: 0.8, fats: 2.5 }
+        ]
+    },
+    {
+        id: 5024, name: "Rohu/Catla Fish Pulusu", subType: "Curry", region: "South Indian",
+        ediblePortion: 100, type: "non-veg", calories: 120, protein: 18, carbs: 3, fats: 4,
+        category: "Protein Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Fish (Rohu/Catla)", weight: 75, calories: 95, protein: 17, carbs: 0, fats: 2 },
+            { name: "Tamarind Gravy", weight: 20, calories: 15, protein: 0.5, carbs: 3, fats: 0.5 },
+            { name: "Oil & Spices", weight: 5, calories: 10, protein: 0.5, carbs: 0, fats: 1.5 }
+        ]
+    },
+    {
+        id: 5025, name: "Beans Poriyal", subType: "Side", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 70, protein: 4, carbs: 10, fats: 2,
+        category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Green Beans", weight: 85, calories: 40, protein: 3, carbs: 8, fats: 0.2 },
+            { name: "Grated Coconut", weight: 10, calories: 20, protein: 0.5, carbs: 1, fats: 1.5 },
+            { name: "Oil & Mustard Seeds", weight: 5, calories: 10, protein: 0.5, carbs: 1, fats: 0.3 }
+        ]
+    },
+    {
+        id: 5026, name: "Veg Kurma", subType: "Curry", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 140, protein: 3, carbs: 17, fats: 7,
+        category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Mixed Vegetables", weight: 60, calories: 35, protein: 1.5, carbs: 7, fats: 0.2 },
+            { name: "Coconut & Poppy Paste", weight: 30, calories: 80, protein: 1, carbs: 8, fats: 5 },
+            { name: "Oil & Spices", weight: 10, calories: 25, protein: 0.5, carbs: 2, fats: 1.8 }
+        ]
+    },
+    {
+        id: 5027, name: "Mushroom Pepper Fry", subType: "Side", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 65, protein: 3, carbs: 8, fats: 3,
+        category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Mushrooms", weight: 80, calories: 25, protein: 2.5, carbs: 4, fats: 0.2 },
+            { name: "Onion & Pepper", weight: 15, calories: 15, protein: 0.5, carbs: 4, fats: 0.3 },
+            { name: "Oil", weight: 5, calories: 25, protein: 0, carbs: 0, fats: 2.5 }
+        ]
+    },
+    {
+        id: 5028, name: "Broccoli Stir Fry", subType: "Side", region: "International",
+        ediblePortion: 100, type: "veg", calories: 75, protein: 3, carbs: 8, fats: 4,
+        category: "Vegetables", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Broccoli", weight: 90, calories: 35, protein: 2.5, carbs: 6, fats: 0.4 },
+            { name: "Garlic & Olive Oil", weight: 10, calories: 40, protein: 0.5, carbs: 2, fats: 3.6 }
+        ]
+    },
+    {
+        id: 5029, name: "Idli", subType: "Main", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 120, protein: 4, carbs: 24, fats: 0.5,
+        category: "Carb Source", servingSize: "1 Pc (50g)", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Parboiled Rice", weight: 35, calories: 80, protein: 2, carbs: 18, fats: 0.2 },
+            { name: "Urad Dal", weight: 15, calories: 40, protein: 2, carbs: 6, fats: 0.3 }
+        ]
+    },
+    {
+        id: 5030, name: "Plain Dosa", subType: "Main", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 165, protein: 4, carbs: 28, fats: 4,
+        category: "Carb Source", servingSize: "1 Pc", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Rice & Urad Dal Batter", weight: 90, calories: 120, protein: 4, carbs: 26, fats: 0.5 },
+            { name: "Cooking Oil", weight: 10, calories: 45, protein: 0, carbs: 2, fats: 3.5 }
+        ]
+    },
+    {
+        id: 5031, name: "Curd Rice", subType: "Main", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 120, protein: 4, carbs: 19, fats: 3,
+        category: "Carb Source", servingSize: "100g", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Steamed Rice", weight: 60, calories: 78, protein: 1.6, carbs: 17, fats: 0.2 },
+            { name: "Yogurt / Curd", weight: 35, calories: 25, protein: 2, carbs: 2, fats: 1.5 },
+            { name: "Tempering (Oil/Mustard)", weight: 5, calories: 17, protein: 0.4, carbs: 0, fats: 1.3 }
+        ]
+    },
+    {
+        id: 5032, name: "Rasam", subType: "Curry", region: "South Indian",
+        ediblePortion: 100, type: "veg", calories: 25, protein: 0.5, carbs: 3, fats: 1,
+        category: "Liquid", servingSize: "1 Bowl", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Tamarind & Tomato Water", weight: 90, calories: 10, protein: 0.2, carbs: 2, fats: 0.1 },
+            { name: "Rasam Spices & Oil", weight: 10, calories: 15, protein: 0.3, carbs: 1, fats: 0.9 }
+        ]
+    },
+    {
+        id: 5033, name: "Tofu-Hung Curd Dip", subType: "Condiment", region: "International",
+        ediblePortion: 100, type: "veg", calories: 28, protein: 2.2, carbs: 2.8, fats: 1.1,
+        category: "Protein Source", servingSize: "1 Serving", isCooked: false, isCombo: false,
+        composition: [
+            { name: "Hung Curd", weight: 60, calories: 18, protein: 1.2, carbs: 2, fats: 0.6 },
+            { name: "Silken Tofu", weight: 40, calories: 10, protein: 1, carbs: 0.8, fats: 0.5 }
+        ]
+    },
+    {
+        id: 5034, name: "Paneer-Curd Dip", subType: "Condiment", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 76, protein: 8.8, carbs: 4.4, fats: 3.3,
+        category: "Protein Source", servingSize: "1 Serving", isCooked: false, isCombo: false,
+        composition: [
+            { name: "Yogurt / Curd", weight: 50, calories: 30, protein: 3, carbs: 4, fats: 1 },
+            { name: "Mashed Paneer", weight: 50, calories: 46, protein: 5.8, carbs: 0.4, fats: 2.3 }
+        ]
+    },
+    {
+        id: 5035, name: "Wheat Phulka", subType: "Bread", region: "Indian",
+        ediblePortion: 100, type: "veg", calories: 230, protein: 7, carbs: 46, fats: 1.5,
+        category: "Carb Source", servingSize: "1 Pc (35-40g)", isCooked: true, isCombo: false,
+        composition: [
+            { name: "Whole Wheat Flour", weight: 70, calories: 220, protein: 7, carbs: 45, fats: 1 },
+            { name: "Water & Fire (Cooking)", weight: 30, calories: 10, protein: 0, carbs: 1, fats: 0.5 }
         ]
     }
 ];

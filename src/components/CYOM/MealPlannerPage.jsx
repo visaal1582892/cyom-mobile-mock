@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import Loader from '../UI/Loader';
 import Toast from '../UI/Toast';
 import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets } from '../../utils/calculations';
@@ -53,18 +56,49 @@ const MealPlannerPage = () => {
     const [toast, setToast] = useState(null);
     const [infoModalOpen, setInfoModalOpen] = useState(false);
     const [infoItem, setInfoItem] = useState(null);
+    const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+    const downloadRef = useRef(null);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (downloadRef.current && !downloadRef.current.contains(event.target)) {
+                setDownloadMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleShowInfo = (e, item) => {
         e.stopPropagation();
-        let fullItem = item;
-        // If it's a component (has a name but maybe no composition), 
+        let fullItem = { ...item };
+
+        // If it's a component (has a name but no composition), 
         // check if we can find a more detailed version in DB
-        if (!item.composition || item.composition.length === 0) {
-            const dbMatch = foodDatabase.find(f => f.name === item.name);
+        if (!fullItem.composition || fullItem.composition.length === 0) {
+            // Refined Lookup: 
+            // 1. Strict equality first, prioritizing non-combos
+            // 2. Case-insensitive
+            const dbMatch = foodDatabase.find(f =>
+                (f.name.toLowerCase() === fullItem.name.toLowerCase() && !f.isCombo)
+            ) || foodDatabase.find(f =>
+                f.name.toLowerCase() === fullItem.name.toLowerCase()
+            ) || foodDatabase.find(f =>
+                f.isCooked && f.name.toLowerCase().includes(fullItem.name.toLowerCase()) && !f.isCombo
+            );
+
             if (dbMatch && dbMatch.composition && dbMatch.composition.length > 0) {
-                fullItem = dbMatch;
+                // If found, we want to scale the DB match composition to the item's weight if possible
+                const itemWeight = fullItem.calculatedWeight || fullItem.scaledWeight || parseServingWeight(fullItem) || 100;
+                const ratio = itemWeight / (parseServingWeight(dbMatch) || 100);
+                fullItem.composition = dbMatch.composition.map(c => ({
+                    ...c,
+                    scaledWeight: Math.round((c.weight || 0) * ratio)
+                }));
             }
         }
+
         setInfoItem(fullItem);
         setInfoModalOpen(true);
     };
@@ -564,26 +598,91 @@ const MealPlannerPage = () => {
     };
 
     const handleDownloadExcel = () => {
-        let csvContent = "Day,Slot,Item Name,Weight (g),Calories (kcal),Protein (g),Carbs (g),Fats (g)\n";
+        const wb = XLSX.utils.book_new();
+        const data = [];
+        data.push(["Day", "Slot", "Item Name", "Weight (g)", "Calories (kcal)", "Protein (g)", "Carbs (g)", "Fats (g)"]);
 
         for (let d = 1; d <= (planDuration || 1); d++) {
             ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
                 const items = plan[d]?.[slot] || [];
                 items.forEach(item => {
-                    csvContent += `${d},${slot},"${item.name}",${item.calculatedWeight},${item.calculatedCalories},${item.macros.protein},${item.macros.carbs},${item.macros.fats}\n`;
+                    data.push([
+                        d, slot.toUpperCase(), item.name, item.calculatedWeight, item.calculatedCalories,
+                        item.macros.protein, item.macros.carbs, item.macros.fats
+                    ]);
                 });
             });
         }
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `meal_plan_${userData.name || 'user'}_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Meal Plan");
+        XLSX.writeFile(wb, `meal_plan_${userData.name || 'user'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        setDownloadMenuOpen(false);
+    };
+
+    const handleDownloadPDF = () => {
+        try {
+            const doc = new jsPDF();
+            const title = `Meal Plan for ${userData.name || 'User'}`;
+            const date = new Date().toLocaleDateString();
+
+            doc.setFontSize(22);
+            doc.setTextColor(46, 125, 107);
+            doc.text(title, 14, 22);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Generated on: ${date}`, 14, 30);
+
+            doc.setFontSize(14);
+            doc.setTextColor(0);
+            doc.text("Plan Preferences", 14, 45);
+            doc.setDrawColor(46, 125, 107);
+            doc.line(14, 47, 60, 47);
+
+            doc.setFontSize(10);
+            doc.text(`Diet Preference: ${preferences.dietPreference}`, 14, 55);
+            doc.text(`Cuisine Style: ${preferences.cuisineStyle}`, 14, 62);
+            doc.text(`Target Calories: ${stats.targetCalories} kcal`, 14, 69);
+            doc.text(`Plan Duration: ${planDuration} Day(s)`, 14, 76);
+
+            const tableColumn = ["Day", "Slot", "Item", "Weight", "Kcal", "P", "C", "F"];
+            const tableRows = [];
+
+            for (let d = 1; d <= (planDuration || 1); d++) {
+                ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+                    const items = plan[d]?.[slot] || [];
+                    items.forEach(item => {
+                        tableRows.push([
+                            d, slot.charAt(0).toUpperCase() + slot.slice(1), item.name, `${item.calculatedWeight}g`,
+                            item.calculatedCalories, item.macros.protein, item.macros.carbs, item.macros.fats
+                        ]);
+                    });
+                });
+            }
+
+            autoTable(doc, {
+                startY: 85,
+                head: [tableColumn],
+                body: tableRows,
+                theme: 'grid',
+                headStyles: { fillColor: [46, 125, 107], textColor: [255, 255, 255], fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: {
+                    0: { cellWidth: 10 }, 1: { cellWidth: 20 }, 2: { cellWidth: 'auto' },
+                    3: { cellWidth: 15, halign: 'center' }, 4: { cellWidth: 15, halign: 'center' },
+                    5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 10, halign: 'center' }, 7: { cellWidth: 10, halign: 'center' },
+                }
+            });
+
+            doc.save(`meal_plan_${userData.name || 'user'}_${new Date().toISOString().split('T')[0]}.pdf`);
+            setDownloadMenuOpen(false);
+            setToast({ message: "PDF Downloaded Successfully!", type: "success" });
+        } catch (error) {
+            console.error("PDF Generation Error:", error);
+            setToast({ message: "Failed to generate PDF.", type: "error" });
+            setDownloadMenuOpen(false);
+        }
     };
 
 
@@ -1177,17 +1276,32 @@ const MealPlannerPage = () => {
                     </div>
                 </div>
             )}
-            {/* FIXED FOOTER */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex items-center gap-3">
-                <button onClick={handleDownloadExcel} className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    Download Excel
-                </button>
-                <button onClick={() => setSaveModalOpen(true)} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+            {/* Fixed Footer */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 flex gap-3">
+                <div className="relative flex-1" ref={downloadRef}>
+                    <button onClick={() => setDownloadMenuOpen(!downloadMenuOpen)} className="w-full py-3 bg-gray-100 text-gray-700 font-black text-xs sm:text-sm rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                        <svg className="w-5 h-5 text-[#2E7D6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg>
+                        Download
+                    </button>
+                    {downloadMenuOpen && (
+                        <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up-mobile">
+                            <button onClick={handleDownloadExcel} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 border-b border-gray-100 transition-all">
+                                <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center"><svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg></div>
+                                <div className="text-left"><div className="font-bold text-gray-800 text-sm">Excel Sheets</div><div className="text-[10px] text-gray-400 font-bold uppercase">Tracking & Analysis</div></div>
+                            </button>
+                            <button onClick={handleDownloadPDF} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-all">
+                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center"><svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" strokeWidth={2} /></svg></div>
+                                <div className="text-left"><div className="font-bold text-gray-800 text-sm">PDF Document</div><div className="text-[10px] text-gray-400 font-bold uppercase">Print & Share</div></div>
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <button onClick={() => setSaveModalOpen(true)} className="flex-1 py-3 bg-[#2E7D6B] text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" strokeWidth={2} /></svg>
                     Save Plan
                 </button>
             </div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
 };
