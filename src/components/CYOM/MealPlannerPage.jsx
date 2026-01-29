@@ -155,8 +155,11 @@ const MealPlannerPage = () => {
             ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
                 // Calculate Beverage Calories for this slot
                 const bevCalories = bevSchedule.reduce((sum, bev) => {
-                    if (bev.slots[slot]) {
-                        return sum + (bev.calories + (bev.withSugar ? 40 : 0));
+                    const s = bev.slots[slot];
+                    if (s?.active) {
+                        const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                        const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                        return sum + (Math.round(bev.calories * sizeMult + sugarCals) * s.quantity);
                     }
                     return sum;
                 }, 0);
@@ -665,11 +668,16 @@ const MealPlannerPage = () => {
                 });
 
                 // Add Beverages for this slot
-                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
+                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
                 slotBeverages.forEach(bev => {
+                    const s = bev.slots[slot];
+                    const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                    const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                    const cals = Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
+                    const sugarText = bev.withSugar ? ` w/ ${s.sugarTabs} tbsp sugar` : '';
                     data.push([
-                        d, slot.toUpperCase(), `${bev.name}${bev.withSugar ? ' (+Sugar)' : ''}`, "1 Serving",
-                        bev.calories + (bev.withSugar ? 40 : 0), bev.protein || 0, bev.carbs || 0, bev.fats || 0
+                        d, slot.toUpperCase(), `${bev.name}${sugarText} (${s.quantity}x ${s.cupSize})`, "1 Serving",
+                        cals, Math.round((bev.protein || 0) * sizeMult * s.quantity), Math.round((bev.carbs || 0) * sizeMult * s.quantity), Math.round((bev.fats || 0) * sizeMult * s.quantity)
                     ]);
                 });
             });
@@ -721,11 +729,16 @@ const MealPlannerPage = () => {
                     });
 
                     // Add Beverages
-                    const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
+                    const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
                     slotBeverages.forEach(bev => {
+                        const s = bev.slots[slot];
+                        const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                        const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                        const cals = Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
+                        const sugarText = bev.withSugar ? ` w/ ${s.sugarTabs} tbsp` : '';
                         tableRows.push([
-                            d, slot.charAt(0).toUpperCase() + slot.slice(1), `${bev.name}${bev.withSugar ? ' (+Sugar)' : ''}`, "1 Serv",
-                            bev.calories + (bev.withSugar ? 40 : 0), bev.protein || 0, bev.carbs || 0, bev.fats || 0
+                            d, slot.charAt(0).toUpperCase() + slot.slice(1), `${bev.name}${sugarText} (${s.quantity}x ${s.cupSize})`, "1 Serv",
+                            cals, Math.round((bev.protein || 0) * sizeMult * s.quantity), Math.round((bev.carbs || 0) * sizeMult * s.quantity), Math.round((bev.fats || 0) * sizeMult * s.quantity)
                         ]);
                     });
                 });
@@ -759,16 +772,22 @@ const MealPlannerPage = () => {
 
     const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
     const bevDailyTotals = (preferences.beverageSchedule || []).reduce((acc, bev) => {
-        const slotsCount = Object.values(bev.slots).filter(Boolean).length;
-        const bevCals = (bev.calories + (bev.withSugar ? 40 : 0)) * slotsCount;
-        const bevP = (bev.protein || 0) * slotsCount;
-        const bevC = (bev.carbs || 0) * slotsCount;
-        const bevF = (bev.fats || 0) * slotsCount;
+        let bevCals = 0, bevP = 0, bevC = 0, bevF = 0;
+        Object.values(bev.slots).forEach(s => {
+            if (s.active) {
+                const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                bevCals += Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
+                bevP += (bev.protein || 0) * sizeMult * s.quantity;
+                bevC += (bev.carbs || 0) * sizeMult * s.quantity;
+                bevF += (bev.fats || 0) * sizeMult * s.quantity;
+            }
+        });
         return {
             calories: acc.calories + bevCals,
-            protein: acc.protein + bevP,
-            carbs: acc.carbs + bevC,
-            fats: acc.fats + bevF
+            protein: acc.protein + Math.round(bevP),
+            carbs: acc.carbs + Math.round(bevC),
+            fats: acc.fats + Math.round(bevF)
         };
     }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
 
@@ -890,8 +909,13 @@ const MealPlannerPage = () => {
                                 const reqC = Math.round(target * 0.50 / 4);
                                 const reqF = Math.round(target * 0.25 / 9);
 
-                                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
-                                const bevSlotCals = slotBeverages.reduce((sum, bev) => sum + (bev.calories + (bev.withSugar ? 40 : 0)), 0);
+                                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
+                                const bevSlotCals = slotBeverages.reduce((sum, bev) => {
+                                    const s = bev.slots[slot];
+                                    const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                                    const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                                    return sum + (Math.round(bev.calories * sizeMult + sugarCals) * s.quantity);
+                                }, 0);
 
                                 const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0) + bevSlotCals;
                                 const totalP = items.reduce((a, b) => a + b.macros.protein, 0);
@@ -1081,25 +1105,33 @@ const MealPlannerPage = () => {
                                         })}
 
                                         {/* BEVERAGES */}
-                                        {slotBeverages.map(bev => (
-                                            <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
-                                                <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0">☕</div>
-                                                        <div>
-                                                            <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
-                                                                {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">(+Sugar)</span>}
+                                        {slotBeverages.map(bev => {
+                                            const s = bev.slots[slot];
+                                            const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                                            const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                                            const cals = Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
+                                            return (
+                                                <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
+                                                    <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0">🥤</div>
+                                                            <div>
+                                                                <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
+                                                                    {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">w/ {s.sugarTabs} tbsp sugar</span>}
+                                                                </div>
+                                                                <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                                    {s.quantity}x {s.cupSize} cup{s.quantity > 1 ? 's' : ''}
+                                                                </div>
                                                             </div>
-                                                            <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-tighter">1 Serving / Beverage</div>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-2 sm:p-3 text-center font-bold text-gray-700 text-xs sm:text-sm">{bev.calories + (bev.withSugar ? 40 : 0)}</td>
-                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.protein || '-'}</td>
-                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.carbs || '-'}</td>
-                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.fats || '-'}</td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                    <td className="p-2 sm:p-3 text-center font-bold text-gray-700 text-xs sm:text-sm">{cals}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.protein || 0) * sizeMult * s.quantity) || '-'}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.carbs || 0) * sizeMult * s.quantity) || '-'}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.fats || 0) * sizeMult * s.quantity) || '-'}</td>
+                                                </tr>
+                                            );
+                                        })}
 
                                         {/* FOOTER / TOTALS FOR SLOT */}
                                         <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">

@@ -67,11 +67,16 @@ const SavedPlansPage = () => {
         // Add Beverages from beverageSchedule (stored in preferences)
         const beverageSchedule = planData.preferences?.beverageSchedule || [];
         beverageSchedule.forEach(bev => {
-            const slotsCount = Object.values(bev.slots).filter(Boolean).length;
-            totalCals += (bev.calories + (bev.withSugar ? 40 : 0)) * slotsCount * dayCount;
-            totalP += (bev.protein || 0) * slotsCount * dayCount;
-            totalC += (bev.carbs || 0) * slotsCount * dayCount;
-            totalF += (bev.fats || 0) * slotsCount * dayCount;
+            Object.values(bev.slots).forEach(s => {
+                if (s.active) {
+                    const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                    const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                    totalCals += Math.round(bev.calories * sizeMult + sugarCals) * s.quantity * (dayCount || 1);
+                    totalP += (bev.protein || 0) * sizeMult * s.quantity * (dayCount || 1);
+                    totalC += (bev.carbs || 0) * sizeMult * s.quantity * (dayCount || 1);
+                    totalF += (bev.fats || 0) * sizeMult * s.quantity * (dayCount || 1);
+                }
+            });
         });
 
         const count = dayCount || 1;
