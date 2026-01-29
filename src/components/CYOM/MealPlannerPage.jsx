@@ -27,7 +27,7 @@ const MealPlannerPage = () => {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ bmr: 0, tdee: 0, targetCalories: 0, mealSplit: {} });
     const [plan, setPlan] = useState({ 1: { breakfast: [], lunch: [], snacks: [], dinner: [] } });
-    const [preferences, setPreferences] = useState({ dietPreference: 'Vegetarian', cuisineStyle: 'All' });
+    const [preferences, setPreferences] = useState({ dietPreference: 'Vegetarian', cuisineStyle: 'All', allergies: [], beverageSchedule: [] });
 
     // UI State
     const [currentDay, setCurrentDay] = useState(1);
@@ -110,6 +110,21 @@ const MealPlannerPage = () => {
         return match ? parseInt(match[1]) : 100;
     };
 
+    const isAllergic = (item) => {
+        if (!preferences.allergies || preferences.allergies.length === 0) return false;
+        const allSet = new Set(preferences.allergies.map(a => a.toLowerCase()));
+
+        // Check main item name
+        if (allSet.has(item.name.toLowerCase())) return true;
+
+        // Deep check composition
+        if (item.composition) {
+            return item.composition.some(c => allSet.has(c.name.toLowerCase()));
+        }
+
+        return false;
+    };
+
     // --- INITIALIZATION ---
     useEffect(() => {
         if (location.state) {
@@ -119,26 +134,40 @@ const MealPlannerPage = () => {
                 setPreferences(saved.stats.preferences || {});
                 setPlanName(saved.name || "");
             } else {
-                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, planDuration: d, dietPreference, cuisineStyle } = location.state;
+                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [] } = location.state;
                 const bmr = calculateBMR(currentWeight, currentHeight, userData.age, userData.gender);
                 const tdee = calculateTDEE(bmr, activityLevel);
                 const target = calculateTargetCalories(tdee, targetWeightLoss, bmr);
                 const split = calculateMealTargets(target);
                 setStats({ bmr, tdee, targetCalories: target, mealSplit: split });
-                setPreferences({ dietPreference, cuisineStyle });
+                setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule });
                 setPlanDuration(parseInt(d) || 1);
-                generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle);
+                generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle, allergies, beverageSchedule);
             }
             setLoading(false);
         } else { setLoading(false); }
     }, [location.state]);
 
-    const generateMultiDayPlan = (days, targets, diet, cuisine) => {
+    const generateMultiDayPlan = (days, targets, diet, cuisine, allergies, bevSchedule = []) => {
         const newPlan = {};
         for (let i = 1; i <= days; i++) {
             newPlan[i] = { breakfast: [], lunch: [], snacks: [], dinner: [] };
             ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+                // Calculate Beverage Calories for this slot
+                const bevCalories = bevSchedule.reduce((sum, bev) => {
+                    if (bev.slots[slot]) {
+                        return sum + (bev.calories + (bev.withSugar ? 40 : 0));
+                    }
+                    return sum;
+                }, 0);
+
+                // Adjust Target Calories for the slot
+                const adjustedTarget = Math.max(50, targets[slot] - bevCalories);
+
                 let pool = foodDatabase.filter(f => {
+                    // 0. Allergy Exclusion
+                    if (isAllergic(f)) return false;
+
                     // 1. Cooked & Slot Match
                     const isCookedAndSlot = f.isCooked && (slot === 'snacks' ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot));
                     if (!isCookedAndSlot) return false;
@@ -153,7 +182,7 @@ const MealPlannerPage = () => {
 
                 if (pool.length > 0) {
                     const item = pool[Math.floor(Math.random() * pool.length)];
-                    const instance = createItemInstance(item, targets[slot]);
+                    const instance = createItemInstance(item, adjustedTarget);
                     newPlan[i][slot].push(instance);
                 }
             });
@@ -597,6 +626,29 @@ const MealPlannerPage = () => {
         }));
     };
 
+    const handleSavePlan = () => {
+        if (!planName.trim()) {
+            setToast({ message: "Please enter a plan name.", type: "error" });
+            return;
+        }
+
+        const newPlan = {
+            id: Date.now(),
+            name: planName.trim(),
+            createdAt: new Date().toISOString(),
+            duration: planDuration,
+            stats,
+            preferences,
+            plan
+        };
+
+        const existingPlans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
+        localStorage.setItem('cyom_saved_plans', JSON.stringify([newPlan, ...existingPlans]));
+
+        setSaveModalOpen(false);
+        setToast({ message: "Plan saved successfully!", type: "success" });
+    };
+
     const handleDownloadExcel = () => {
         const wb = XLSX.utils.book_new();
         const data = [];
@@ -609,6 +661,15 @@ const MealPlannerPage = () => {
                     data.push([
                         d, slot.toUpperCase(), item.name, item.calculatedWeight, item.calculatedCalories,
                         item.macros.protein, item.macros.carbs, item.macros.fats
+                    ]);
+                });
+
+                // Add Beverages for this slot
+                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
+                slotBeverages.forEach(bev => {
+                    data.push([
+                        d, slot.toUpperCase(), `${bev.name}${bev.withSugar ? ' (+Sugar)' : ''}`, "1 Serving",
+                        bev.calories + (bev.withSugar ? 40 : 0), bev.protein || 0, bev.carbs || 0, bev.fats || 0
                     ]);
                 });
             });
@@ -658,6 +719,15 @@ const MealPlannerPage = () => {
                             item.calculatedCalories, item.macros.protein, item.macros.carbs, item.macros.fats
                         ]);
                     });
+
+                    // Add Beverages
+                    const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
+                    slotBeverages.forEach(bev => {
+                        tableRows.push([
+                            d, slot.charAt(0).toUpperCase() + slot.slice(1), `${bev.name}${bev.withSugar ? ' (+Sugar)' : ''}`, "1 Serv",
+                            bev.calories + (bev.withSugar ? 40 : 0), bev.protein || 0, bev.carbs || 0, bev.fats || 0
+                        ]);
+                    });
                 });
             }
 
@@ -688,10 +758,24 @@ const MealPlannerPage = () => {
 
 
     const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
-    const dailyTotal = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.calculatedCalories, 0) || 0), 0);
-    const dailyProtein = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.protein, 0) || 0), 0);
-    const dailyCarbs = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.carbs, 0) || 0), 0);
-    const dailyFats = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.fats, 0) || 0), 0);
+    const bevDailyTotals = (preferences.beverageSchedule || []).reduce((acc, bev) => {
+        const slotsCount = Object.values(bev.slots).filter(Boolean).length;
+        const bevCals = (bev.calories + (bev.withSugar ? 40 : 0)) * slotsCount;
+        const bevP = (bev.protein || 0) * slotsCount;
+        const bevC = (bev.carbs || 0) * slotsCount;
+        const bevF = (bev.fats || 0) * slotsCount;
+        return {
+            calories: acc.calories + bevCals,
+            protein: acc.protein + bevP,
+            carbs: acc.carbs + bevC,
+            fats: acc.fats + bevF
+        };
+    }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
+
+    const dailyTotal = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.calculatedCalories, 0) || 0), 0) + bevDailyTotals.calories;
+    const dailyProtein = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.protein, 0) || 0), 0) + bevDailyTotals.protein;
+    const dailyCarbs = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.carbs, 0) || 0), 0) + bevDailyTotals.carbs;
+    const dailyFats = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.fats, 0) || 0), 0) + bevDailyTotals.fats;
 
     const targetP = Math.round(stats.targetCalories * 0.25 / 4);
     const targetC = Math.round(stats.targetCalories * 0.50 / 4);
@@ -745,6 +829,11 @@ const MealPlannerPage = () => {
                                 <div className="text-sm sm:text-base font-black text-gray-900 leading-tight">
                                     {dailyTotal} <span className="text-gray-400 text-xs font-medium">/ {stats.targetCalories}</span>
                                 </div>
+                                {bevDailyTotals.calories > 0 && (
+                                    <div className="text-[9px] font-bold text-orange-500 bg-orange-50 px-1.5 rounded mt-0.5 inline-block">
+                                        🥤 Includes {bevDailyTotals.calories} kcal from drinks
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -801,7 +890,10 @@ const MealPlannerPage = () => {
                                 const reqC = Math.round(target * 0.50 / 4);
                                 const reqF = Math.round(target * 0.25 / 9);
 
-                                const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0);
+                                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]);
+                                const bevSlotCals = slotBeverages.reduce((sum, bev) => sum + (bev.calories + (bev.withSugar ? 40 : 0)), 0);
+
+                                const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0) + bevSlotCals;
                                 const totalP = items.reduce((a, b) => a + b.macros.protein, 0);
                                 const totalC = items.reduce((a, b) => a + b.macros.carbs, 0);
                                 const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
@@ -988,6 +1080,27 @@ const MealPlannerPage = () => {
                                             );
                                         })}
 
+                                        {/* BEVERAGES */}
+                                        {slotBeverages.map(bev => (
+                                            <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
+                                                <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0">☕</div>
+                                                        <div>
+                                                            <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
+                                                                {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">(+Sugar)</span>}
+                                                            </div>
+                                                            <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-tighter">1 Serving / Beverage</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-2 sm:p-3 text-center font-bold text-gray-700 text-xs sm:text-sm">{bev.calories + (bev.withSugar ? 40 : 0)}</td>
+                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.protein || '-'}</td>
+                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.carbs || '-'}</td>
+                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{bev.fats || '-'}</td>
+                                            </tr>
+                                        ))}
+
                                         {/* FOOTER / TOTALS FOR SLOT */}
                                         <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">
                                             <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-xs sm:text-sm uppercase text-gray-500 font-bold tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
@@ -1144,6 +1257,9 @@ const MealPlannerPage = () => {
                                     contextMatch = contextMatch && (f.region === preferences.cuisineStyle || f.region === 'All' || f.region === 'International');
                                 }
 
+                                // 3. Allergy Exclusion
+                                if (isAllergic(f)) contextMatch = false;
+
                                 // 2. Query Filtering
                                 const queryMatch = f.name.toLowerCase().includes(inlineSearch.query.toLowerCase());
 
@@ -1271,7 +1387,7 @@ const MealPlannerPage = () => {
                         </div>
                         <div className="flex gap-3">
                             <button onClick={() => setSaveModalOpen(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
-                            <button onClick={() => { /* Save Logic */ setSaveModalOpen(false); }} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all">Save Now</button>
+                            <button onClick={handleSavePlan} className="flex-1 py-3 bg-[#2E7D6B] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all">Save Now</button>
                         </div>
                     </div>
                 </div>

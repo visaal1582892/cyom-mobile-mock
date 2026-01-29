@@ -1002,6 +1002,28 @@ const regionalItems = [
     }
 ];
 
+// --- BEVERAGES (For Beverage Scheduling) ---
+const beverages = [
+    { id: 801, name: "Black Coffee", category: "Liquid", subType: "Drink", calories: 5, protein: 0.5, carbs: 1, fats: 0, region: "All", isCooked: true },
+    { id: 802, name: "Black Tea", category: "Liquid", subType: "Drink", calories: 2, protein: 0.2, carbs: 0.5, fats: 0, region: "All", isCooked: true },
+    { id: 803, name: "Green Tea", category: "Liquid", subType: "Drink", calories: 1, protein: 0.1, carbs: 0.2, fats: 0, region: "All", isCooked: true },
+    { id: 804, name: "Milk Coffee", category: "Liquid", subType: "Drink", calories: 65, protein: 3, carbs: 6, fats: 3.5, region: "All", isCooked: true },
+    { id: 805, name: "Milk Tea (Chai)", category: "Liquid", subType: "Drink", calories: 55, protein: 2.5, carbs: 5, fats: 3, region: "All", isCooked: true },
+    { id: 806, name: "Skimmed Milk", category: "Liquid", subType: "Drink", calories: 40, protein: 3.5, carbs: 5, fats: 0.2, region: "All", isCooked: false },
+    { id: 807, name: "Whole Milk", category: "Liquid", subType: "Drink", calories: 65, protein: 3.2, carbs: 4.8, fats: 3.8, region: "All", isCooked: false },
+    { id: 808, name: "Orange Juice", category: "Liquid", subType: "Drink", calories: 45, protein: 0.7, carbs: 10.4, fats: 0.2, region: "All", isCooked: false },
+    { id: 809, name: "Apple Juice", category: "Liquid", subType: "Drink", calories: 50, protein: 0.3, carbs: 12, fats: 0.1, region: "All", isCooked: false },
+    { id: 810, name: "Coconut Water", category: "Liquid", subType: "Drink", calories: 20, protein: 0.7, carbs: 4.8, fats: 0.2, region: "All", isCooked: false },
+    { id: 811, name: "Lemon Soda", category: "Liquid", subType: "Drink", calories: 30, protein: 0, carbs: 8, fats: 0, region: "All", isCooked: false },
+    { id: 812, name: "Buttermilk (Chaas)", category: "Liquid", subType: "Drink", calories: 35, protein: 2.5, carbs: 4, fats: 1, region: "Indian", isCooked: false },
+    { id: 813, name: "Lassi (Plain)", category: "Liquid", subType: "Drink", calories: 150, protein: 7, carbs: 18, fats: 6, region: "Indian", isCooked: false },
+    { id: 814, name: "Protein Shake (Whey)", category: "Liquid", subType: "Drink", calories: 120, protein: 25, carbs: 3, fats: 1.5, region: "All", isCooked: false },
+    { id: 815, name: "Badam Milk", category: "Liquid", subType: "Drink", calories: 180, protein: 6, carbs: 22, fats: 8, region: "Indian", isCooked: true },
+    { id: 816, name: "Cold Coffee", category: "Liquid", subType: "Drink", calories: 160, protein: 4, carbs: 20, fats: 7, region: "All", isCooked: true },
+    { id: 817, name: "Chocolate Milkshake", category: "Liquid", subType: "Drink", calories: 250, protein: 8, carbs: 35, fats: 9, region: "All", isCooked: false }
+];
+
 foodDatabase.push(...dinnerItems);
 foodDatabase.push(...staples);
 foodDatabase.push(...regionalItems);
+foodDatabase.push(...beverages);

@@ -64,6 +64,16 @@ const SavedPlansPage = () => {
             });
         }
 
+        // Add Beverages from beverageSchedule (stored in preferences)
+        const beverageSchedule = planData.preferences?.beverageSchedule || [];
+        beverageSchedule.forEach(bev => {
+            const slotsCount = Object.values(bev.slots).filter(Boolean).length;
+            totalCals += (bev.calories + (bev.withSugar ? 40 : 0)) * slotsCount * dayCount;
+            totalP += (bev.protein || 0) * slotsCount * dayCount;
+            totalC += (bev.carbs || 0) * slotsCount * dayCount;
+            totalF += (bev.fats || 0) * slotsCount * dayCount;
+        });
+
         const count = dayCount || 1;
         return {
             cals: Math.round(totalCals / count),
