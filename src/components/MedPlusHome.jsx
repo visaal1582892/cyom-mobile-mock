@@ -126,17 +126,17 @@ const MedPlusHome = () => {
 
             {/* Banner (Swapped) */}
             <div className="mt-6 px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
-                <div className="rounded-xl overflow-hidden shadow-md flex items-center justify-between p-4 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-8 md:justify-center md:gap-20">
+                <div className="rounded-xl overflow-hidden shadow-md flex items-center justify-between p-3 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-6 md:justify-center md:gap-20">
                     <div>
                         <div className="text-xs bg-white text-red-600 px-1 inline-block rounded-sm mb-1">MedPlus</div>
-                        <div className="text-sm font-light md:text-lg">MedPlus Brand Medicines</div>
-                        <div className="text-4xl font-bold md:text-6xl">50-80%</div>
-                        <div className="text-lg font-bold md:text-2xl">Discount</div>
-                        <div className="text-xs bg-white text-black px-2 py-0.5 rounded-full mt-2 inline-block md:text-sm">Membership at ₹ 99/- per year</div>
+                        <div className="text-xs font-light md:text-base">MedPlus Brand Medicines</div>
+                        <div className="text-3xl font-bold md:text-5xl">50-80%</div>
+                        <div className="text-base font-bold md:text-xl">Discount</div>
+                        <div className="text-[10px] bg-white text-black px-2 py-0.5 rounded-full mt-1 inline-block md:text-xs">Membership at ₹ 99/- per year</div>
                     </div>
-                    <div className="relative h-32 w-24 md:h-48 md:w-32">
+                    <div className="relative h-24 w-20 md:h-36 md:w-28">
                         {/* Mocking the person image */}
-                        <div className="absolute bottom-0 right-0 h-28 w-20 bg-gray-800 rounded-t-lg opacity-20 md:h-40 md:w-28"></div>
+                        <div className="absolute bottom-0 right-0 h-20 w-16 bg-gray-800 rounded-t-lg opacity-20 md:h-30 md:w-24"></div>
                     </div>
                 </div>
             </div>
