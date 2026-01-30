@@ -7,7 +7,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import Loader from '../UI/Loader';
 import Toast from '../UI/Toast';
-import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets } from '../../utils/calculations';
+import { calculateBMR, calculateTDEE, calculateTargetCalories, calculateMealTargets, calculateMacroTargets } from '../../utils/calculations';
 
 // --- SUB-COMPONENTS ---
 
@@ -137,9 +137,11 @@ const MealPlannerPage = () => {
                 const { currentWeight, currentHeight, activityLevel, targetWeightLoss, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [] } = location.state;
                 const bmr = calculateBMR(currentWeight, currentHeight, userData.age, userData.gender);
                 const tdee = calculateTDEE(bmr, activityLevel);
-                const target = calculateTargetCalories(tdee, targetWeightLoss, bmr);
+                const target = calculateTargetCalories(currentWeight, currentHeight, userData.age, userData.gender, activityLevel, targetWeightLoss);
+                const targetWeight = currentWeight - targetWeightLoss;
+                const macros = calculateMacroTargets(target, targetWeight);
                 const split = calculateMealTargets(target);
-                setStats({ bmr, tdee, targetCalories: target, mealSplit: split });
+                setStats({ bmr, tdee, targetCalories: target, mealSplit: split, macroTargets: macros });
                 setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule });
                 setPlanDuration(parseInt(d) || 1);
                 generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle, allergies, beverageSchedule);
@@ -796,9 +798,9 @@ const MealPlannerPage = () => {
     const dailyCarbs = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.carbs, 0) || 0), 0) + bevDailyTotals.carbs;
     const dailyFats = slots.reduce((total, slot) => total + (plan[currentDay]?.[slot]?.reduce((a, b) => a + b.macros.fats, 0) || 0), 0) + bevDailyTotals.fats;
 
-    const targetP = Math.round(stats.targetCalories * 0.25 / 4);
-    const targetC = Math.round(stats.targetCalories * 0.50 / 4);
-    const targetF = Math.round(stats.targetCalories * 0.25 / 9);
+    const targetP = stats.macroTargets?.protein || Math.round(stats.targetCalories * 0.30 / 4);
+    const targetC = stats.macroTargets?.carbs || Math.round(stats.targetCalories * 0.45 / 4);
+    const targetF = stats.macroTargets?.fats || Math.round(stats.targetCalories * 0.25 / 9);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
@@ -905,9 +907,10 @@ const MealPlannerPage = () => {
                             {slots.map(slot => {
                                 const items = plan[currentDay]?.[slot] || [];
                                 const target = stats.mealSplit[slot] || 0;
-                                const reqP = Math.round(target * 0.25 / 4);
-                                const reqC = Math.round(target * 0.50 / 4);
-                                const reqF = Math.round(target * 0.25 / 9);
+                                const ratio = stats.targetCalories ? (target / stats.targetCalories) : 0;
+                                const reqP = Math.round((stats.macroTargets?.protein || 0) * ratio);
+                                const reqC = Math.round((stats.macroTargets?.carbs || 0) * ratio);
+                                const reqF = Math.round((stats.macroTargets?.fats || 0) * ratio);
 
                                 const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
                                 const bevSlotCals = slotBeverages.reduce((sum, bev) => {

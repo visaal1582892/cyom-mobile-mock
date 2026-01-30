@@ -20,20 +20,18 @@ export const calculateTDEE = (bmr, activityLevel) => {
     return Math.round(bmr * multiplier);
 };
 
-export const calculateTargetCalories = (tdee, targetWeightLossKG, bmr) => {
-    // Calculate Monthly Deficit required: (Target KG * 7700 kcal/kg)
-    // Daily Deficit = Monthly Total / 30
-    const totalDeficit = targetWeightLossKG * 7700;
-    const dailyDeficit = totalDeficit / 30;
+export const calculateTargetCalories = (currentWeight, height, age, gender, activityLevel, targetWeightLossKG) => {
+    // 1. Determine Target Weight
+    const targetWeight = currentWeight - targetWeightLossKG;
 
-    let target = tdee - dailyDeficit;
+    // 2. Calculate BMR for the Target Weight
+    // reuse local function if possible, or copy logic. Since calculateBMR is in scope, we call it.
+    const targetBMR = calculateBMR(targetWeight, height, age, gender);
 
-    // Constraint: Never eat below BMR
-    if (target < bmr) {
-        target = bmr;
-    }
+    // 3. Calculate TDEE for Target Weight (This is the new Target Intake)
+    const targetTDEE = calculateTDEE(targetBMR, activityLevel);
 
-    return Math.round(target);
+    return targetTDEE;
 };
 
 export const calculateMealTargets = (totalCalories) => {
@@ -46,12 +44,23 @@ export const calculateMealTargets = (totalCalories) => {
     };
 };
 
-export const calculateMacroTargets = (calories) => {
-    // Breakdown: 45% Carbs, 30% Protein, 25% Fat
-    // 1g Carb = 4kcal, 1g Protein = 4kcal, 1g Fat = 9kcal
+export const calculateMacroTargets = (calories, weightInKg) => {
+    // 1. Protein: Min(30% of Calories, 1.5g per kg body weight)
+    const proteinFromCals = (calories * 0.30) / 4;
+    const proteinFromWeight = 1.5 * weightInKg;
+    const proteinTarget = Math.round(Math.min(proteinFromCals, proteinFromWeight));
+
+    // 2. Fats: Fixed at 25% of Total Calories (Standard healthy baseline)
+    const fatTarget = Math.round((calories * 0.25) / 9);
+
+    // 3. Carbs: Remainder of the calorie budget
+    const usedCals = (proteinTarget * 4) + (fatTarget * 9);
+    const remainingCals = Math.max(0, calories - usedCals);
+    const carbTarget = Math.round(remainingCals / 4);
+
     return {
-        carbs: Math.round((calories * 0.45) / 4),
-        protein: Math.round((calories * 0.30) / 4),
-        fats: Math.round((calories * 0.25) / 9)
+        carbs: carbTarget,
+        protein: proteinTarget,
+        fats: fatTarget
     };
 };
