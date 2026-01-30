@@ -125,8 +125,8 @@ const MedPlusHome = () => {
             </div>
 
             {/* Banner (Swapped) */}
-            <div className="mt-6 pb-8 w-full bg-red-600 relative">
-                <div className="max-w-7xl mx-auto flex items-center justify-between p-4 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-8 md:justify-center md:gap-20">
+            <div className="mt-6 px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
+                <div className="rounded-xl overflow-hidden shadow-md flex items-center justify-between p-4 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-8 md:justify-center md:gap-20">
                     <div>
                         <div className="text-xs bg-white text-red-600 px-1 inline-block rounded-sm mb-1">MedPlus</div>
                         <div className="text-sm font-light md:text-lg">MedPlus Brand Medicines</div>
