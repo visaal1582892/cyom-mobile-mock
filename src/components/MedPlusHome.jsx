@@ -59,20 +59,19 @@ const MedPlusHome = () => {
                 </div>
             </div>
 
-            {/* Banner */}
-            <div className="mt-2 w-full bg-red-600 relative">
-                <div className="max-w-7xl mx-auto flex items-center justify-between p-4 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-8 md:justify-center md:gap-20">
+            {/* Nutrition Tab (Swapped) */}
+            <div className="px-4 py-4 md:px-8 max-w-7xl mx-auto w-full">
+                <div
+                    onClick={handleCyomClick}
+                    className="bg-primary hover:bg-teal-700 transition-colors w-full p-4 rounded-lg text-white flex items-center justify-between shadow-md cursor-pointer"
+                >
                     <div>
-                        <div className="text-xs bg-white text-red-600 px-1 inline-block rounded-sm mb-1">MedPlus</div>
-                        <div className="text-sm font-light md:text-lg">MedPlus Brand Medicines</div>
-                        <div className="text-4xl font-bold md:text-6xl">50-80%</div>
-                        <div className="text-lg font-bold md:text-2xl">Discount</div>
-                        <div className="text-xs bg-white text-black px-2 py-0.5 rounded-full mt-2 inline-block md:text-sm">Membership at ₹ 99/- per year</div>
+                        <div className="text-lg font-bold">Nutrition and Wellness (CYOM)</div>
+                        <div className="text-sm opacity-90">Track your meals and nutrition</div>
                     </div>
-                    <div className="relative h-32 w-24 md:h-48 md:w-32">
-                        {/* Mocking the person image */}
-                        <div className="absolute bottom-0 right-0 h-28 w-20 bg-gray-800 rounded-t-lg opacity-20 md:h-40 md:w-28"></div>
-                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                    </svg>
                 </div>
             </div>
 
@@ -125,18 +124,20 @@ const MedPlusHome = () => {
                 </div>
             </div>
 
-            <div className="px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
-                <div
-                    onClick={handleCyomClick}
-                    className="bg-primary hover:bg-teal-700 transition-colors w-full p-4 rounded-lg text-white flex items-center justify-between shadow-md cursor-pointer"
-                >
+            {/* Banner (Swapped) */}
+            <div className="mt-6 pb-8 w-full bg-red-600 relative">
+                <div className="max-w-7xl mx-auto flex items-center justify-between p-4 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-8 md:justify-center md:gap-20">
                     <div>
-                        <div className="text-lg font-bold">Nutrition and Wellness (CYOM)</div>
-                        <div className="text-sm opacity-90">Track your meals and nutrition</div>
+                        <div className="text-xs bg-white text-red-600 px-1 inline-block rounded-sm mb-1">MedPlus</div>
+                        <div className="text-sm font-light md:text-lg">MedPlus Brand Medicines</div>
+                        <div className="text-4xl font-bold md:text-6xl">50-80%</div>
+                        <div className="text-lg font-bold md:text-2xl">Discount</div>
+                        <div className="text-xs bg-white text-black px-2 py-0.5 rounded-full mt-2 inline-block md:text-sm">Membership at ₹ 99/- per year</div>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-                    </svg>
+                    <div className="relative h-32 w-24 md:h-48 md:w-32">
+                        {/* Mocking the person image */}
+                        <div className="absolute bottom-0 right-0 h-28 w-20 bg-gray-800 rounded-t-lg opacity-20 md:h-40 md:w-28"></div>
+                    </div>
                 </div>
             </div>
 

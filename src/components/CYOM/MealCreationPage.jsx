@@ -437,7 +437,7 @@ const MealCreationPage = () => {
 
                                 {/* Saved List - ALL Beverages */}
                                 <div className="bg-gray-50/50 rounded-2xl border border-gray-100 min-h-[60px] max-h-64 overflow-y-auto custom-scrollbar relative">
-                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest sticky top-0 bg-gray-50 z-20 px-3 py-2 border-b border-gray-100 shadow-sm w-full">Your Schedule</div>
+
                                     <div className="space-y-2 p-2 pt-1">
                                         {savedRows.length === 0 ? (
                                             <div className="text-center py-4 text-xs text-gray-400 italic">No beverages added yet.</div>
