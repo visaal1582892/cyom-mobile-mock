@@ -12,6 +12,7 @@ import MilkLarge from '../../assets/Milk Large.png';
 import CoffeeSmall from '../../assets/Coffee Small.png';
 import CoffeeMedium from '../../assets/Coffee Medium.png';
 import CoffeeLarge from '../../assets/Coffee Large.png';
+import { LeafIcon, CoffeeBeanIcon, MilkIcon } from '../Icons/RefreshmentIcons';
 
 const InputField = ({ label, name, value, type = "text", placeholder, suffix, onChange }) => (
     <div className="relative group">
@@ -440,9 +441,10 @@ const MealCreationPage = () => {
                                         <button
                                             key={tab}
                                             onClick={() => { setActiveTab(tab); setTempBev(prev => ({ ...prev, vessel: tab === 'Milk' && prev.vessel === 'Medium' ? 'Small' : prev.vessel })); }}
-                                            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTab === tab ? 'bg-white text-[#2E7D6B] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+                                            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-white text-[#2E7D6B] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
-                                            {tab === 'Tea' ? '☕' : tab === 'Coffee' ? '🧋' : '🥛'} {tab}
+                                            {tab === 'Tea' ? <LeafIcon className="w-5 h-5" /> : tab === 'Coffee' ? <CoffeeBeanIcon className="w-5 h-5" /> : <MilkIcon className="w-5 h-5" />}
+                                            <span>{tab}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -462,7 +464,7 @@ const MealCreationPage = () => {
                                                     <div key={row.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-xs">
-                                                                {activeTab === 'Tea' ? '☕' : activeTab === 'Coffee' ? '🧋' : '🥛'}
+                                                                {activeTab === 'Tea' ? <LeafIcon className="w-5 h-5" /> : activeTab === 'Coffee' ? <CoffeeBeanIcon className="w-5 h-5" /> : <MilkIcon className="w-5 h-5" />}
                                                             </div>
                                                             <div>
                                                                 <div className="text-xs font-bold text-gray-800">{mapSpan}</div>
