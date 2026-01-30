@@ -993,7 +993,7 @@ const MealPlannerPage = () => {
                                                                         <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
                                                                         <button
                                                                             onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
-                                                                            className="text-xs sm:text-sm text-gray-600 truncate hover:text-[#2E7D6B] hover:underline transition-all text-left"
+                                                                            className="text-xs sm:text-sm font-bold text-[#2E7D6B] bg-[#2E7D6B]/5 border border-[#2E7D6B]/20 rounded px-2 py-0.5 truncate hover:bg-[#2E7D6B]/10 hover:border-[#2E7D6B] transition-all text-left shadow-sm"
                                                                             title="Click to Swap"
                                                                         >
                                                                             {comp.name}

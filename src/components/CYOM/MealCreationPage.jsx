@@ -3,9 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
 
-import SmallCup from '../../assets/small_cup.png';
-import MediumCup from '../../assets/medium_cup.png';
-import LargeCup from '../../assets/large_cup.png';
+import TeaSmall from '../../assets/tea small.png';
+import TeaMedium from '../../assets/tea medium.png';
+import TeaLarge from '../../assets/tea large.png';
+import MilkSmall from '../../assets/Milk Small.png';
+import MilkMedium from '../../assets/Milk Medium.png';
+import MilkLarge from '../../assets/Milk Large.png';
+import CoffeeSmall from '../../assets/Coffee Small.png';
+import CoffeeMedium from '../../assets/Coffee Medium.png';
+import CoffeeLarge from '../../assets/Coffee Large.png';
 
 const InputField = ({ label, name, value, type = "text", placeholder, suffix, onChange }) => (
     <div className="relative group">
@@ -39,16 +45,44 @@ const MealCreationPage = () => {
         cuisineStyle: 'North Indian',
         planDuration: '1 Day',
         allergies: [],
-        beverageSchedule: [] // [{ name, id, slots: { breakfast, lunch, snacks, dinner }, withSugar: false }]
+        beverageSchedule: [] // Adapted structure to match MealPlannerPage requirements
     });
 
     const [currentStep, setCurrentStep] = useState(1);
     const [allergySearch, setAllergySearch] = useState('');
     const [allergyResults, setAllergyResults] = useState([]);
 
-    // Beverage specific state
-    const [bevSearch, setBevSearch] = useState('');
-    const [bevResults, setBevResults] = useState([]);
+    // Refreshment Planner Tab State
+    const [activeTab, setActiveTab] = useState('Tea');
+    const [tempBev, setTempBev] = useState({
+        time: 'Morning',
+        vessel: 'Medium', // Matches 'cupSize' values expected: Small, Medium, Large
+        quantity: 1,
+        sugar: 0
+    });
+
+    const TABS = ['Tea', 'Coffee', 'Milk'];
+    const TIME_SPANS = ['Morning', 'Afternoon', 'Evening', 'Night'];
+
+    // Updated Vessel Config: Use Small, Medium, Large keys.
+    // Tea/Coffee: Small, Medium, Large. Milk: Small, Large.
+    const VESSELS = {
+        Tea: [
+            { id: 'Small', label: 'Small (100-150ml)', icon: TeaSmall, sizeClass: 'h-6' },
+            { id: 'Medium', label: 'Medium (200-250ml)', icon: TeaMedium, sizeClass: 'h-7' },
+            { id: 'Large', label: 'Large (300-350ml)', icon: TeaLarge, sizeClass: 'h-9' }
+        ],
+        Coffee: [
+            { id: 'Small', label: 'Small (100-150ml)', icon: CoffeeSmall, sizeClass: 'h-6' },
+            { id: 'Medium', label: 'Medium (200-250ml)', icon: CoffeeMedium, sizeClass: 'h-7' },
+            { id: 'Large', label: 'Large (300-350ml)', icon: CoffeeLarge, sizeClass: 'h-9' }
+        ],
+        Milk: [
+            { id: 'Small', label: 'Small (100-150ml)', icon: MilkSmall, sizeClass: 'h-6' },
+            { id: 'Medium', label: 'Medium (200-250ml)', icon: MilkMedium, sizeClass: 'h-7' },
+            { id: 'Large', label: 'Large (300-350ml)', icon: MilkLarge, sizeClass: 'h-9' }
+        ]
+    };
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -96,87 +130,66 @@ const MealCreationPage = () => {
         }));
     };
 
-    const handleBevSearch = (val) => {
-        setBevSearch(val);
-        if (val.trim()) {
-            const results = foodDatabase.filter(f =>
-                (f.category === 'Liquid' || f.subType === 'Drink') &&
-                f.name.toLowerCase().includes(val.toLowerCase())
-            );
-            setBevResults(results.slice(0, 10));
-        } else {
-            setBevResults([]);
-        }
-    };
-
-    const addBeverage = (bev) => {
-        if (formData.beverageSchedule.some(b => b.id === bev.id)) return;
-        setFormData(prev => ({
-            ...prev,
-            beverageSchedule: [...prev.beverageSchedule, {
-                ...bev,
-                slots: {
-                    breakfast: { active: true, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
-                    lunch: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
-                    snacks: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
-                    dinner: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 }
-                },
-                withSugar: false
-            }]
-        }));
-        setBevSearch('');
-        setBevResults([]);
-    };
-
-    const updateBevSlot = (bevId, slot, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            beverageSchedule: prev.beverageSchedule.map(b =>
-                b.id === bevId ? {
-                    ...b,
-                    slots: {
-                        ...b.slots,
-                        [slot]: { ...b.slots[slot], [field]: value }
-                    }
-                } : b
-            )
-        }));
-    };
-
-    const toggleBevSlot = (bevId, slot) => {
-        setFormData(prev => ({
-            ...prev,
-            beverageSchedule: prev.beverageSchedule.map(b =>
-                b.id === bevId ? {
-                    ...b,
-                    slots: {
-                        ...b.slots,
-                        [slot]: { ...b.slots[slot], active: !b.slots[slot].active }
-                    }
-                } : b
-            )
-        }));
-    };
-
-    const toggleSugar = (bevId) => {
-        setFormData(prev => ({
-            ...prev,
-            beverageSchedule: prev.beverageSchedule.map(b =>
-                b.id === bevId ? { ...b, withSugar: !b.withSugar } : b
-            )
-        }));
-    };
-
-    const removeBeverage = (bevId) => {
-        setFormData(prev => ({
-            ...prev,
-            beverageSchedule: prev.beverageSchedule.filter(b => b.id !== bevId)
-        }));
-    };
-
     const handleLogout = () => {
         navigate('/login');
     };
+
+    // --- New Refreshment Logic ---
+
+    const handleAddRefreshment = () => {
+        const baseCalories = activeTab === 'Tea' ? 30 : activeTab === 'Coffee' ? 40 : 120;
+        const slotMap = { 'Morning': 'breakfast', 'Afternoon': 'lunch', 'Evening': 'snacks', 'Night': 'dinner' };
+        const targetSlot = slotMap[tempBev.time];
+
+        // Check for duplicate slot usage for this beverage type
+        const existing = formData.beverageSchedule.find(b => b.name === activeTab && b.slots[targetSlot]?.active);
+        if (existing) {
+            alert(`You already have a ${activeTab} scheduled for ${tempBev.time}. Please remove it first to change details.`);
+            return;
+        }
+
+        const newBev = {
+            id: Date.now(),
+            name: activeTab,
+            category: 'Liquid',
+            type: activeTab,
+            calories: baseCalories,
+            protein: activeTab === 'Milk' ? 8 : 1,
+            carbs: activeTab === 'Milk' ? 12 : 2,
+            fats: activeTab === 'Milk' ? 5 : 0,
+            slots: {
+                breakfast: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
+                lunch: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
+                snacks: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
+                dinner: { active: false, cupSize: 'Medium', quantity: 1, sugarTabs: 0 },
+                [targetSlot]: {
+                    active: true,
+                    cupSize: tempBev.vessel,
+                    quantity: tempBev.quantity,
+                    sugarTabs: tempBev.sugar
+                }
+            },
+            withSugar: tempBev.sugar > 0 // Required for Planner calculation
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            beverageSchedule: [...prev.beverageSchedule, newBev]
+        }));
+
+        // Reset specific fields only if desired, or keep for rapid entry. 
+        // Resetting quantity to 1 seems reasonable.
+        setTempBev(prev => ({ ...prev, quantity: 1, sugar: 0 }));
+    };
+
+    const removeBeverage = (id) => {
+        setFormData(prev => ({
+            ...prev,
+            beverageSchedule: prev.beverageSchedule.filter(b => b.id !== id)
+        }));
+    };
+
+    const savedRows = formData.beverageSchedule.filter(b => b.name === activeTab);
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -288,7 +301,7 @@ const MealCreationPage = () => {
                         </div>
                     </div>
 
-                    <div className="mt-8 bg-white/95 backdrop-blur-xl p-6 md:p-8 rounded-[32px] shadow-2xl border border-white/50 text-[#1F2933]">
+                    <div className="mt-8 bg-white/94 backdrop-blur-xl p-6 md:p-8 rounded-[32px] shadow-2xl border border-white/50 text-[#1F2933]">
                         {/* Progress Header */}
                         <div className="flex justify-between items-center mb-8">
                             <div className="flex gap-2">
@@ -413,146 +426,137 @@ const MealCreationPage = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-4 animate-fade-in text-gray-800">
-                                <div className="mb-4">
+                            <div className="space-y-3 animate-fade-in text-gray-800">
+                                <div className="mb-2">
                                     <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                         <span className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-sm shadow-sm border border-blue-100/50">🥤</span>
                                         Refreshment Planner
                                     </h2>
                                 </div>
 
-                                <div className="relative group">
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={bevSearch}
-                                            onChange={(e) => handleBevSearch(e.target.value)}
-                                            placeholder="Search drinks (Milk, Coffee, Tea...)"
-                                            className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-bold text-gray-700 placeholder-gray-400 shadow-sm"
-                                        />
-                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                        </div>
-                                        {bevResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 max-h-56 overflow-y-auto custom-scrollbar">
-                                                {bevResults.map(bev => (
-                                                    <button key={bev.id} onClick={() => addBeverage(bev)} className="w-full text-left px-5 py-3 hover:bg-green-50 flex items-center justify-between border-b last:border-0 border-gray-50 transition-colors">
-                                                        <div>
-                                                            <div className="text-sm font-bold text-gray-800">{bev.name}</div>
-                                                            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mt-0.5">{bev.calories} kcal / serving</div>
+                                {/* Tabs */}
+                                <div className="flex bg-gray-50 p-1 rounded-2xl">
+                                    {TABS.map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => { setActiveTab(tab); setTempBev(prev => ({ ...prev, vessel: tab === 'Milk' && prev.vessel === 'Medium' ? 'Small' : prev.vessel })); }}
+                                            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTab === tab ? 'bg-white text-[#2E7D6B] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            {tab === 'Tea' ? '☕' : tab === 'Coffee' ? '🧋' : '🥛'} {tab}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Saved List for Active Tab */}
+                                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 min-h-[60px] max-h-64 overflow-y-auto custom-scrollbar relative">
+                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest sticky top-0 bg-gray-50 z-20 px-3 py-2 border-b border-gray-100 shadow-sm w-full">Saved {activeTab}s</div>
+                                    <div className="space-y-2 p-2 pt-1">
+                                        {savedRows.length === 0 ? (
+                                            <div className="text-center py-4 text-xs text-gray-400 italic">No {activeTab.toLowerCase()} added yet.</div>
+                                        ) : (
+                                            savedRows.map(row => {
+                                                const activeSlotName = Object.keys(row.slots).find(k => row.slots[k].active);
+                                                const slotData = row.slots[activeSlotName];
+                                                const mapSpan = Object.entries({ 'breakfast': 'Morning', 'lunch': 'Afternoon', 'snacks': 'Evening', 'dinner': 'Night' }).find(([k, v]) => k === activeSlotName)?.[1] || activeSlotName;
+                                                return (
+                                                    <div key={row.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-xs">
+                                                                {activeTab === 'Tea' ? '☕' : activeTab === 'Coffee' ? '🧋' : '🥛'}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xs font-bold text-gray-800">{mapSpan}</div>
+                                                                <div className="text-[10px] text-gray-500 font-medium">
+                                                                    {slotData.quantity}x {slotData.cupSize} • {slotData.sugarTabs} sugar
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div className="p-2 bg-[#2E7D6B] rounded-xl shadow-lg shadow-[#2E7D6B]/20 text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></div>
-                                                    </button>
-                                                ))}
-                                            </div>
+                                                        <button onClick={() => removeBeverage(row.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
-                                    {formData.beverageSchedule.map(bev => (
-                                        <div key={bev.id} className="p-3.5 rounded-[28px] bg-white border border-gray-100 shadow-sm space-y-3 relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-1.5 z-10">
-                                                <button onClick={() => removeBeverage(bev.id)} className="p-1.5 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-full transition-all">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 bg-orange-50 rounded-lg flex items-center justify-center text-sm">🥤</div>
-                                                <div className="flex-1">
-                                                    <div className="font-black text-gray-800 text-sm leading-tight">{bev.name}</div>
-                                                    <div className="text-[8px] text-gray-400 font-black uppercase tracking-widest leading-none">Base: {bev.calories} kcal</div>
+                                {/* Compact Add Form - Split Layout */}
+                                <div className="bg-white border-2 border-[#E0F2F1] rounded-2xl p-3 shadow-lg shadow-[#2E7D6B]/5 relative overflow-hidden">
+                                    <div className="relative z-10 space-y-2">
+                                        <div className="flex items-end gap-2">
+                                            <div className="w-[35%]">
+                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 pl-1">Time</label>
+                                                <div className="relative">
+                                                    <select
+                                                        value={tempBev.time}
+                                                        onChange={(e) => setTempBev(prev => ({ ...prev, time: e.target.value }))}
+                                                        className="w-full pl-2 pr-6 py-1.5 rounded-lg bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-xs font-bold text-gray-700 appearance-none transition-all"
+                                                    >
+                                                        {TIME_SPANS.map(time => (
+                                                            <option key={time} value={time}>{time}</option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {['breakfast', 'lunch', 'snacks', 'dinner'].map(slot => (
-                                                    <div key={slot} className={`p-2.5 rounded-xl border transition-all ${bev.slots[slot].active ? 'bg-green-50/20 border-green-100/50' : 'bg-gray-50/20 border-transparent opacity-50'}`}>
-                                                        <div className="flex items-center justify-between mb-1.5">
-                                                            <button
-                                                                onClick={() => toggleBevSlot(bev.id, slot)}
-                                                                className={`flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all ${bev.slots[slot].active ? 'text-[#2E7D6B]' : 'text-gray-400'}`}
-                                                            >
-                                                                <div className={`w-3.5 h-3.5 rounded-md border-2 flex items-center justify-center transition-all ${bev.slots[slot].active ? 'bg-[#2E7D6B] border-[#2E7D6B]' : 'border-gray-200'}`}>
-                                                                    {bev.slots[slot].active && <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={5} d="M5 13l4 4L19 7" /></svg>}
-                                                                </div>
-                                                                {slot}
-                                                            </button>
-                                                        </div>
-
-                                                        {bev.slots[slot].active && (
-                                                            <div className="flex flex-col gap-3 animate-fade-in pl-1">
-                                                                <div className="flex items-center justify-between gap-4">
-                                                                    <div className="flex-1">
-                                                                        <label className="text-[7px] font-black text-gray-400 uppercase tracking-widest block mb-1">Cup Size</label>
-                                                                        <div className="flex gap-1">
-                                                                            {[
-                                                                                { id: 'S', img: LargeCup, full: 'Small', sizeClass: 'h-5 ' },
-                                                                                { id: 'M', img: LargeCup, full: 'Medium', sizeClass: 'h-6' },
-                                                                                { id: 'L', img: LargeCup, full: 'Large', sizeClass: 'h-7' }
-                                                                            ].map(cup => (
-                                                                                <button
-                                                                                    key={cup.id}
-                                                                                    onClick={() => updateBevSlot(bev.id, slot, 'cupSize', cup.full)}
-                                                                                    className={`flex-1 h-10 flex items-end justify-center pb-1 rounded-lg border-2 transition-all ${bev.slots[slot].cupSize === cup.full ? 'border-[#2E7D6B] bg-white shadow-sm' : 'border-transparent hover:bg-white/50'}`}
-                                                                                >
-                                                                                    <img src={cup.img} alt={cup.id} className={`${cup.sizeClass} w-auto object-contain transition-all`} />
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="w-20">
-                                                                        <label className="text-[7px] font-black text-gray-400 uppercase tracking-widest block mb-1">Qty</label>
-                                                                        <div className="flex items-center justify-between bg-white rounded-lg border px-1 h-7">
-                                                                            <button onClick={() => updateBevSlot(bev.id, slot, 'quantity', Math.max(1, bev.slots[slot].quantity - 1))} className="text-gray-300 hover:text-red-500 font-black"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M20 12H4" /></svg></button>
-                                                                            <span className="font-black text-gray-700 text-[9px]">{bev.slots[slot].quantity}</span>
-                                                                            <button onClick={() => updateBevSlot(bev.id, slot, 'quantity', bev.slots[slot].quantity + 1)} className="text-[#2E7D6B] font-black"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M12 4v16m8-8H4" /></svg></button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="flex items-center justify-between bg-yellow-50/20 p-2 rounded-lg border border-yellow-100/20">
-                                                                    <div className="text-[8px] font-black text-yellow-600 uppercase tracking-wider flex items-center gap-1">
-                                                                        <span className="text-[10px]">🍯</span> Sugar (tbsp)
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <button onClick={() => updateBevSlot(bev.id, slot, 'sugarTabs', Math.max(0, (bev.slots[slot].sugarTabs || 0) - 0.5))} className="w-5 h-5 flex items-center justify-center bg-white rounded-md border border-yellow-200 text-yellow-600 font-black text-[10px]">-</button>
-                                                                        <span className="w-5 text-center text-[9px] font-black text-yellow-700">{bev.slots[slot].sugarTabs || 0}</span>
-                                                                        <button onClick={() => updateBevSlot(bev.id, slot, 'sugarTabs', (bev.slots[slot].sugarTabs || 0) + 0.5)} className="w-5 h-5 flex items-center justify-center bg-white rounded-md border border-yellow-200 text-yellow-600 font-black text-[10px]">+</button>
-                                                                    </div>
-                                                                </div>
+                                            <div className="flex-1">
+                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 text-center">Container</label>
+                                                <div className="flex gap-1 justify-end h-full">
+                                                    {VESSELS[activeTab].map((v) => (
+                                                        <button
+                                                            key={v.id}
+                                                            onClick={() => setTempBev(prev => ({ ...prev, vessel: v.id }))}
+                                                            className={`flex-1 flex flex-col items-center justify-between p-1 rounded-lg border-2 transition-all h-[56px] text-center ${tempBev.vessel === v.id ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-sm' : 'border-gray-50 bg-gray-50 hover:bg-white hover:border-gray-200'} `}
+                                                            title={v.label}
+                                                        >
+                                                            <div className="flex-1 flex items-center justify-center">
+                                                                <img src={v.icon} alt={v.id} className="h-6 w-auto object-contain" />
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <div className="flex items-center justify-between pt-2.5 border-t border-gray-50/50">
-                                                <div></div>
-                                                <div className="text-right">
-                                                    <div className="text-[7px] text-gray-400 font-black uppercase tracking-widest leading-none mb-0.5">Total Daily</div>
-                                                    <div className="text-[13px] font-black text-[#2E7D6B]">
-                                                        {Object.values(bev.slots).reduce((acc, s) => {
-                                                            if (!s.active) return acc;
-                                                            const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
-                                                            const sugarCals = (s.sugarTabs || 0) * 40;
-                                                            return acc + (Math.round(bev.calories * sizeMult + sugarCals) * s.quantity);
-                                                        }, 0)} kcal
-                                                    </div>
+                                                            <div className="flex flex-col items-center w-full leading-tight">
+                                                                <span className={`text-[9px] font-bold ${tempBev.vessel === v.id ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{v.id}</span>
+                                                                <span className={`text-[7.5px] font-semibold whitespace-nowrap ${tempBev.vessel === v.id ? 'text-[#2E7D6B]/80' : 'text-gray-500'}`}>{v.label.match(/\((.*?)\)/)?.[1] || ''}</span>
+                                                            </div>
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
-                                    {formData.beverageSchedule.length === 0 && (
-                                        <div className="py-12 text-center border-4 border-dashed border-gray-50 rounded-[40px] bg-gray-50/20">
-                                            <div className="text-3xl mb-2 opacity-20">🥤</div>
-                                            <p className="text-[10px] text-gray-300 font-black uppercase tracking-widest">No Drinks Added</p>
+
+                                        <div className="flex items-end gap-2">
+                                            <div className="w-[28%]">
+                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 text-center">Cups</label>
+                                                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-0.5 border border-gray-100 h-8">
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))} className="w-6 h-full rounded-md hover:bg-white text-gray-400 hover:text-red-500 flex items-center justify-center font-bold text-xs transition-colors">-</button>
+                                                    <span className="font-bold text-xs text-gray-800">{tempBev.quantity}</span>
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: prev.quantity + 1 }))} className="w-6 h-full rounded-md bg-[#2E7D6B] text-white shadow-sm flex items-center justify-center font-bold text-xs">+</button>
+                                                </div>
+                                            </div>
+
+                                            <div className="w-[28%]">
+                                                <label className="text-[9px] font-black text-yellow-600/60 uppercase tracking-widest block mb-0.5 text-center">Sugar</label>
+                                                <div className="flex items-center justify-between bg-yellow-50/30 rounded-lg p-0.5 border border-yellow-100/50 h-8">
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: Math.max(0, prev.sugar - 0.5) }))} className="w-6 h-full rounded-md hover:bg-white text-yellow-600 hover:text-yellow-700 flex items-center justify-center font-bold text-xs transition-colors">-</button>
+                                                    <span className="font-bold text-xs text-yellow-800">{tempBev.sugar}</span>
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: prev.sugar + 0.5 }))} className="w-6 h-full rounded-md bg-[#FFD166] text-white shadow-sm flex items-center justify-center font-bold text-xs">+</button>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={handleAddRefreshment}
+                                                className="flex-1 h-8 bg-gray-900 text-white rounded-lg font-bold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1 hover:bg-black mt-auto"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                                Add
+                                            </button>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
 
-                                <div className="flex gap-4 pt-4">
+                                <div className="flex gap-4 pt-2">
                                     <button
                                         onClick={() => setCurrentStep(1)}
                                         className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition-all active:scale-95 shadow-sm"
