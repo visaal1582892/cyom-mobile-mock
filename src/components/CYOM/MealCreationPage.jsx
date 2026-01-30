@@ -190,7 +190,7 @@ const MealCreationPage = () => {
         }));
     };
 
-    const savedRows = formData.beverageSchedule.filter(b => b.name === activeTab);
+    const savedRows = formData.beverageSchedule;
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -431,8 +431,42 @@ const MealCreationPage = () => {
                                 <div className="mb-2">
                                     <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                         <span className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-sm shadow-sm border border-blue-100/50">🥤</span>
-                                        Refreshment Planner
+                                        Beverages Planner
                                     </h2>
+                                </div>
+
+                                {/* Saved List - ALL Beverages */}
+                                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 min-h-[60px] max-h-64 overflow-y-auto custom-scrollbar relative">
+                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest sticky top-0 bg-gray-50 z-20 px-3 py-2 border-b border-gray-100 shadow-sm w-full">Your Schedule</div>
+                                    <div className="space-y-2 p-2 pt-1">
+                                        {savedRows.length === 0 ? (
+                                            <div className="text-center py-4 text-xs text-gray-400 italic">No beverages added yet.</div>
+                                        ) : (
+                                            savedRows.map(row => {
+                                                const activeSlotName = Object.keys(row.slots).find(k => row.slots[k].active);
+                                                const slotData = row.slots[activeSlotName];
+                                                const mapSpan = Object.entries({ 'breakfast': 'Morning', 'lunch': 'Afternoon', 'snacks': 'Evening', 'dinner': 'Night' }).find(([k, v]) => k === activeSlotName)?.[1] || activeSlotName;
+                                                return (
+                                                    <div key={row.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-xs">
+                                                                {row.name === 'Tea' ? <LeafIcon className="w-5 h-5" /> : row.name === 'Coffee' ? <CoffeeBeanIcon className="w-5 h-5" /> : <MilkIcon className="w-5 h-5" />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xs font-bold text-gray-800">{mapSpan} <span className="text-gray-400 font-normal">• {row.name}</span></div>
+                                                                <div className="text-[10px] text-gray-500 font-medium">
+                                                                    {slotData.quantity}x {slotData.cupSize} • {slotData.sugarTabs} sugar
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => removeBeverage(row.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Tabs */}
@@ -447,40 +481,6 @@ const MealCreationPage = () => {
                                             <span>{tab}</span>
                                         </button>
                                     ))}
-                                </div>
-
-                                {/* Saved List for Active Tab */}
-                                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 min-h-[60px] max-h-64 overflow-y-auto custom-scrollbar relative">
-                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest sticky top-0 bg-gray-50 z-20 px-3 py-2 border-b border-gray-100 shadow-sm w-full">Saved {activeTab}s</div>
-                                    <div className="space-y-2 p-2 pt-1">
-                                        {savedRows.length === 0 ? (
-                                            <div className="text-center py-4 text-xs text-gray-400 italic">No {activeTab.toLowerCase()} added yet.</div>
-                                        ) : (
-                                            savedRows.map(row => {
-                                                const activeSlotName = Object.keys(row.slots).find(k => row.slots[k].active);
-                                                const slotData = row.slots[activeSlotName];
-                                                const mapSpan = Object.entries({ 'breakfast': 'Morning', 'lunch': 'Afternoon', 'snacks': 'Evening', 'dinner': 'Night' }).find(([k, v]) => k === activeSlotName)?.[1] || activeSlotName;
-                                                return (
-                                                    <div key={row.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-xs">
-                                                                {activeTab === 'Tea' ? <LeafIcon className="w-5 h-5" /> : activeTab === 'Coffee' ? <CoffeeBeanIcon className="w-5 h-5" /> : <MilkIcon className="w-5 h-5" />}
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-xs font-bold text-gray-800">{mapSpan}</div>
-                                                                <div className="text-[10px] text-gray-500 font-medium">
-                                                                    {slotData.quantity}x {slotData.cupSize} • {slotData.sugarTabs} sugar
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button onClick={() => removeBeverage(row.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
                                 </div>
 
                                 {/* Compact Add Form - Split Layout */}
