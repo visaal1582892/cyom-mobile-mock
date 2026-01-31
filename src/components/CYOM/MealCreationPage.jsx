@@ -41,6 +41,7 @@ const MealCreationPage = () => {
         currentHeight: userData.height,
         activityLevel: 'Lightly Active',
         targetWeightLoss: '',
+        goalDuration: '1 Month', // Default to 1 Month
         proteinPreference: 'Moderate',
         dietPreference: 'Vegetarian',
         cuisineStyle: 'North Indian',
@@ -85,8 +86,49 @@ const MealCreationPage = () => {
         ]
     };
 
+    const getMaxWeightLoss = (duration) => {
+        if (duration === '1 Month') return 3;
+        if (duration === '3 Months') return 10;
+        if (duration === '6 Months') return 20;
+        return 20;
+    };
+
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+
+        if (name === 'targetWeightLoss') {
+            const max = getMaxWeightLoss(formData.goalDuration);
+            if (parseFloat(value) > max) {
+                // We can either clamp or just allow typing but show error. 
+                // Let's allow typing but block Next, and ideally show a visual cue.
+                // For now, let's just set it, we will validate in render or on Next.
+            }
+        }
+
+        // If changing duration, we should strictly re-validate existing weight loss? 
+        // Maybe later.
+
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const validateStep1 = () => {
+        const max = getMaxWeightLoss(formData.goalDuration);
+        const loss = parseFloat(formData.targetWeightLoss);
+        if (loss > max) {
+            alert(`For ${formData.goalDuration}, maximum weight loss allowed is ${max}kg.`);
+            return false;
+        }
+        if (!formData.currentWeight || !formData.currentHeight || !formData.targetWeightLoss) {
+            alert("Please fill in all fields.");
+            return false;
+        }
+        return true;
+    };
+
+    const handleNext = () => {
+        if (validateStep1()) {
+            setCurrentStep(2);
+        }
     };
 
     const handleCreateMeal = () => {
@@ -319,7 +361,47 @@ const MealCreationPage = () => {
                                     <InputField label="Current Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" onChange={handleChange} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <InputField label="Tgt Loss/Mo" name="targetWeightLoss" value={formData.targetWeightLoss} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
+                                    <div className="relative group">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Duration to Achieve</label>
+                                        <div className="relative">
+                                            <select
+                                                name="goalDuration"
+                                                value={formData.goalDuration}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
+                                            >
+                                                {['1 Month', '3 Months', '6 Months'].map(d => (
+                                                    <option key={d}>{d}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="relative group">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Total Weight to Lose</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                name="targetWeightLoss"
+                                                value={formData.targetWeightLoss}
+                                                onChange={handleChange}
+                                                placeholder={`Max ${getMaxWeightLoss(formData.goalDuration)}kg`}
+                                                className={`w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm ${parseFloat(formData.targetWeightLoss) > getMaxWeightLoss(formData.goalDuration) ? 'border-red-400 focus:border-red-500 text-red-600' : 'focus:border-[#A8E6CF]'}`}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">kg</span>
+                                        </div>
+                                        {parseFloat(formData.targetWeightLoss) > getMaxWeightLoss(formData.goalDuration) && (
+                                            <div className="text-[10px] text-red-500 font-bold mt-1 ml-1 animate-pulse">
+                                                Max allowed is {getMaxWeightLoss(formData.goalDuration)}kg for {formData.goalDuration}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
                                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Activity Level</label>
                                         <div className="relative">
@@ -340,8 +422,6 @@ const MealCreationPage = () => {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
                                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Diet Preference</label>
                                         <select
@@ -355,6 +435,8 @@ const MealCreationPage = () => {
                                             <option>Eggetarian</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
                                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Cuisine Style</label>
                                         <select
@@ -369,8 +451,6 @@ const MealCreationPage = () => {
                                             <option>Mixed</option>
                                         </select>
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
                                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Plan Duration</label>
                                         <select
@@ -384,24 +464,24 @@ const MealCreationPage = () => {
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Allergies</label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={allergySearch}
-                                                onChange={(e) => handleAllergySearch(e.target.value)}
-                                                placeholder="Search..."
-                                                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
-                                            />
-                                            {allergyResults.length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 max-h-48 overflow-y-auto custom-scrollbar">
-                                                    {allergyResults.map(res => (
-                                                        <button key={res} onClick={() => addAllergy(res)} className="w-full text-left px-4 py-2 hover:bg-green-50 text-gray-700 font-medium text-sm transition-colors">{res}</button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                </div>
+                                <div className="relative group">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Allergies</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={allergySearch}
+                                            onChange={(e) => handleAllergySearch(e.target.value)}
+                                            placeholder="Search..."
+                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
+                                        />
+                                        {allergyResults.length > 0 && (
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 max-h-48 overflow-y-auto custom-scrollbar">
+                                                {allergyResults.map(res => (
+                                                    <button key={res} onClick={() => addAllergy(res)} className="w-full text-left px-4 py-2 hover:bg-green-50 text-gray-700 font-medium text-sm transition-colors">{res}</button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 {formData.allergies.length > 0 && (
@@ -416,7 +496,7 @@ const MealCreationPage = () => {
                                 )}
                                 <div className="pt-4">
                                     <button
-                                        onClick={() => setCurrentStep(2)}
+                                        onClick={handleNext}
                                         className="w-full py-4 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-4"
                                     >
                                         Next
@@ -539,7 +619,7 @@ const MealCreationPage = () => {
                                             </div>
 
                                             <div className="w-[28%]">
-                                                <label className="text-[9px] font-black text-yellow-600/60 uppercase tracking-widest block mb-0.5 text-center">Sugar</label>
+                                                <label className="text-[9px] font-black text-yellow-600/60 uppercase tracking-widest block mb-0.5 text-center">Sugar(tsp)</label>
                                                 <div className="flex items-center justify-between bg-yellow-50/30 rounded-lg p-0.5 border border-yellow-100/50 h-8">
                                                     <button onClick={() => setTempBev(prev => ({ ...prev, sugar: Math.max(0, prev.sugar - 0.5) }))} className="w-6 h-full rounded-md hover:bg-white text-yellow-600 hover:text-yellow-700 flex items-center justify-center font-bold text-xs transition-colors">-</button>
                                                     <span className="font-bold text-xs text-yellow-800">{tempBev.sugar}</span>

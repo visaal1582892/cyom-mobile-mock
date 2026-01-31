@@ -898,10 +898,10 @@ const MealPlannerPage = () => {
                                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
                                     <th className="p-1 sm:p-4 w-[52%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Meal / Ingredient</th>
                                     <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">P <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">C <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">F <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                </tr>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Prot <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Carb <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fat <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                </tr>x
                             </thead>
 
                             {slots.map(slot => {
@@ -1003,10 +1003,10 @@ const MealPlannerPage = () => {
                                                                         </button>
                                                                         <button
                                                                             onClick={(e) => handleShowInfo(e, comp)}
-                                                                            className="w-3.5 h-3.5 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-[#2E7D6B] transition-colors"
+                                                                            className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-[#2E7D6B] transition-colors"
                                                                         >
-                                                                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                                             </svg>
                                                                         </button>
                                                                         {/* Inline Weight Input */}
