@@ -896,12 +896,12 @@ const MealPlannerPage = () => {
                         <table className="w-full text-left border-collapse min-w-full table-fixed">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                                    <th className="p-1 sm:p-4 w-[52%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Meal / Ingredient</th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Prot <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Carb <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                    <th className="p-0.5 sm:p-4 w-[12%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fat <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                </tr>x
+                                    <th className="p-1 sm:p-4 w-[60%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Meal / Ingredient</th>
+                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Prot <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Carb <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fat <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                </tr>
                             </thead>
 
                             {slots.map(slot => {
@@ -938,10 +938,10 @@ const MealPlannerPage = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-[#2E7D6B] font-black border-l border-white bg-[#2E7D6B]/10">{target}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqP}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqC}</td>
-                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-base sm:text-lg border-l border-white">{reqF}</td>
+                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-[#2E7D6B] font-black border-l border-white bg-[#2E7D6B]/10">{target}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqF}</td>
                                         </tr>
 
                                         {/* MEAL ITEMS */}
@@ -959,7 +959,7 @@ const MealPlannerPage = () => {
                                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
                                                                     </div>
                                                                     <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className="font-bold text-gray-800 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{item.name}</span>
+                                                                        <span className="font-bold text-gray-800 text-sm sm:text-base truncate max-w-[140px] sm:max-w-none">{item.name}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-1 sm:gap-2">
@@ -981,10 +981,10 @@ const MealPlannerPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-2 sm:p-3 text-center font-black text-gray-900 text-base sm:text-lg">{item.calculatedCalories}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.protein}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.carbs}</td>
-                                                        <td className="p-2 sm:p-3 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.fats}</td>
+                                                        <td className="p-2 sm:p-3 text-center font-black text-gray-900 text-xs sm:text-sm">{item.calculatedCalories}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
                                                     </tr>
 
                                                     {/* INGREDIENT ROWS (EXPANDABLE) */}
@@ -996,7 +996,7 @@ const MealPlannerPage = () => {
                                                                         <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
                                                                         <button
                                                                             onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
-                                                                            className="text-xs sm:text-sm font-bold text-[#2E7D6B] bg-[#2E7D6B]/5 border border-[#2E7D6B]/20 rounded px-2 py-0.5 truncate hover:bg-[#2E7D6B]/10 hover:border-[#2E7D6B] transition-all text-left shadow-sm"
+                                                                            className="text-sm sm:text-base font-bold text-[#2E7D6B] bg-[#2E7D6B]/5 border border-[#2E7D6B]/20 rounded px-2 py-0.5 truncate hover:bg-[#2E7D6B]/10 hover:border-[#2E7D6B] transition-all text-left shadow-sm"
                                                                             title="Click to Swap"
                                                                         >
                                                                             {comp.name}
@@ -1029,10 +1029,10 @@ const MealPlannerPage = () => {
                                                                     </button>
                                                                 </div>
                                                             </td>
-                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-500">{comp.scaledCalories}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledProtein}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledCarbs}</td>
-                                                            <td className="p-1 sm:p-2 text-center text-sm sm:text-base text-gray-400">{comp.scaledFats}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-500">{comp.scaledCalories}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledProtein}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledCarbs}</td>
+                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledFats}</td>
                                                         </tr>
                                                     ))}
 
@@ -1042,10 +1042,10 @@ const MealPlannerPage = () => {
                                                             {/* Expanded Meal Totals Summary */}
                                                             <tr className="bg-gray-100/50 sm:bg-gray-50/30 border-b border-gray-100">
                                                                 <td className="p-2 pl-4 sm:pl-12 text-xs sm:text-sm font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
-                                                                <td className="p-2 text-center text-base sm:text-lg font-black text-gray-900">{item.calculatedCalories}</td>
-                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.protein}</td>
-                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.carbs}</td>
-                                                                <td className="p-2 text-center text-base sm:text-lg font-bold text-gray-700">{item.macros.fats}</td>
+                                                                <td className="p-2 text-center text-xs sm:text-sm font-black text-gray-900">{item.calculatedCalories}</td>
+                                                                <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
+                                                                <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
+                                                                <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
                                                             </tr>
 
                                                             <tr>
@@ -1144,10 +1144,10 @@ const MealPlannerPage = () => {
                                                     + Add Items
                                                 </button>
                                             </td>
-                                            <td className={`p-2 sm:p-3 text-center text-base sm:text-lg ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
-                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalP}</td>
-                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalC}</td>
-                                            <td className="p-2 sm:p-3 text-center text-base sm:text-lg text-gray-700 font-bold">{totalF}</td>
+                                            <td className={`p-2 sm:p-3 text-center text-xs sm:text-sm ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
+                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalP}</td>
+                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalC}</td>
+                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalF}</td>
                                         </tr>
                                     </tbody>
                                 );

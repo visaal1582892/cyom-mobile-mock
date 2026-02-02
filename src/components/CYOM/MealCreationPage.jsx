@@ -12,6 +12,9 @@ import MilkLarge from '../../assets/Milk Large.png';
 import CoffeeSmall from '../../assets/Coffee Small.png';
 import CoffeeMedium from '../../assets/Coffee Medium.png';
 import CoffeeLarge from '../../assets/Coffee Large.png';
+import TeaTabIcon from '../../assets/tea_tab.png';
+import CoffeeTabIcon from '../../assets/coffee_tab.png';
+import MilkTabIcon from '../../assets/milk_tab.png';
 import { LeafIcon, CoffeeBeanIcon, MilkIcon } from '../Icons/RefreshmentIcons';
 
 const InputField = ({ label, name, value, type = "text", placeholder, suffix, onChange }) => (
@@ -249,8 +252,14 @@ const MealCreationPage = () => {
                         </svg>
                     </button>
                     <div>
-                        <div className="text-xs opacity-80 font-medium text-green-100">Good Morning</div>
-                        <div className="text-lg font-bold">{userData.name}! 👋</div>
+                        <div className="text-xs opacity-80 font-medium text-green-100">Welcome</div>
+                        <div className="flex items-center gap-2">
+                            <div className="text-lg font-bold">{userData.name}! </div>
+                            <div className="flex gap-1">
+                                <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[9px] font-bold border border-white/20">{userData.age} Y</span>
+                                <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[9px] font-bold border border-white/20 uppercase">{userData.gender}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -332,19 +341,15 @@ const MealCreationPage = () => {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4">
-                <div className="w-full max-w-2xl mx-auto mt-6">
-                    <div className="mb-6 ml-2 flex items-center justify-between text-white">
+                <div className="w-full max-w-2xl mx-auto mt-4">
+                    <div className="mb-4 ml-2 flex items-center justify-between text-white">
                         <div>
-                            <h1 className="text-2xl font-bold">Create Your Meal</h1>
-                            <p className="text-sm opacity-80">Let's craft your perfect plan</p>
-                        </div>
-                        <div className="flex gap-2 text-white">
-                            <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold border border-white/20">{userData.age} Years</span>
-                            <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold border border-white/20 uppercase">{userData.gender}</span>
+                            <h1 className="text-xl font-bold">Create Your Meal</h1>
+                            <p className="text-xs opacity-80">Let's craft your perfect plan</p>
                         </div>
                     </div>
 
-                    <div className="mt-8 bg-white/94 backdrop-blur-xl p-6 md:p-8 rounded-[32px] shadow-2xl border border-white/50 text-[#1F2933]">
+                    <div className="mt-4 bg-white/94 backdrop-blur-xl p-6 md:p-8 rounded-[28px] shadow-2xl border border-white/50 text-[#1F2933]">
                         {/* Progress Header */}
                         <div className="flex justify-between items-center mb-8">
                             <div className="flex gap-2">
@@ -357,8 +362,8 @@ const MealCreationPage = () => {
                         {currentStep === 1 ? (
                             <div className="space-y-5 animate-fade-in">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <InputField label="Current Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
-                                    <InputField label="Current Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" onChange={handleChange} />
+                                    <InputField label="Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
+                                    <InputField label="Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" onChange={handleChange} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
@@ -382,7 +387,7 @@ const MealCreationPage = () => {
                                         </div>
                                     </div>
                                     <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Total Weight to Lose</label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Weight Loss Target</label>
                                         <div className="relative">
                                             <input
                                                 type="number"
@@ -452,7 +457,7 @@ const MealCreationPage = () => {
                                         </select>
                                     </div>
                                     <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Plan Duration</label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Meal Options</label>
                                         <select
                                             name="planDuration"
                                             value={formData.planDuration}
@@ -550,91 +555,93 @@ const MealCreationPage = () => {
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="flex bg-gray-50 p-1 rounded-2xl">
+                                <div className="flex bg-gray-50 p-1.5 rounded-2xl gap-1">
                                     {TABS.map(tab => (
                                         <button
                                             key={tab}
                                             onClick={() => { setActiveTab(tab); setTempBev(prev => ({ ...prev, vessel: tab === 'Milk' && prev.vessel === 'Medium' ? 'Small' : prev.vessel })); }}
-                                            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-white text-[#2E7D6B] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+                                            className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-white text-[#2E7D6B] shadow-md transform scale-[1.02]' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
-                                            {tab === 'Tea' ? <LeafIcon className="w-5 h-5" /> : tab === 'Coffee' ? <CoffeeBeanIcon className="w-5 h-5" /> : <MilkIcon className="w-5 h-5" />}
+                                            {tab === 'Tea' ? <img src={TeaTabIcon} className="w-8 h-8 object-contain" alt="Tea" /> : tab === 'Coffee' ? <img src={CoffeeTabIcon} className="w-8 h-8 object-contain" alt="Coffee" /> : <img src={MilkTabIcon} className="w-8 h-8 object-contain" alt="Milk" />}
                                             <span>{tab}</span>
                                         </button>
                                     ))}
                                 </div>
 
-                                {/* Compact Add Form - Split Layout */}
-                                <div className="bg-white border-2 border-[#E0F2F1] rounded-2xl p-3 shadow-lg shadow-[#2E7D6B]/5 relative overflow-hidden">
-                                    <div className="relative z-10 space-y-2">
-                                        <div className="flex items-end gap-2">
-                                            <div className="w-[35%]">
-                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 pl-1">Time</label>
+                                {/* Compact Add Form - Spacious Layout */}
+                                <div className="bg-white border-2 border-[#E0F2F1] rounded-2xl p-4 shadow-lg shadow-[#2E7D6B]/5 relative overflow-hidden">
+                                    <div className="relative z-10 space-y-4">
+
+                                        {/* Row 1: Time, Quantity, Sugar */}
+                                        <div className="grid grid-cols-12 gap-3">
+                                            {/* Time */}
+                                            <div className="col-span-4">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1 pl-1">Time</label>
                                                 <div className="relative">
                                                     <select
                                                         value={tempBev.time}
                                                         onChange={(e) => setTempBev(prev => ({ ...prev, time: e.target.value }))}
-                                                        className="w-full pl-2 pr-6 py-1.5 rounded-lg bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-xs font-bold text-gray-700 appearance-none transition-all"
+                                                        className="w-full px-2 py-2.5 rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-xs font-bold text-gray-700 appearance-none transition-all"
                                                     >
                                                         {TIME_SPANS.map(time => (
                                                             <option key={time} value={time}>{time}</option>
                                                         ))}
                                                     </select>
-                                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex-1">
-                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 text-center">Container</label>
-                                                <div className="flex gap-1 justify-end h-full">
-                                                    {VESSELS[activeTab].map((v) => (
-                                                        <button
-                                                            key={v.id}
-                                                            onClick={() => setTempBev(prev => ({ ...prev, vessel: v.id }))}
-                                                            className={`flex-1 flex flex-col items-center justify-between p-1 rounded-lg border-2 transition-all h-[56px] text-center ${tempBev.vessel === v.id ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-sm' : 'border-gray-50 bg-gray-50 hover:bg-white hover:border-gray-200'} `}
-                                                            title={v.label}
-                                                        >
-                                                            <div className="flex-1 flex items-center justify-center">
-                                                                <img src={v.icon} alt={v.id} className="h-6 w-auto object-contain" />
-                                                            </div>
-                                                            <div className="flex flex-col items-center w-full leading-tight">
-                                                                <span className={`text-[9px] font-bold ${tempBev.vessel === v.id ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{v.id}</span>
-                                                                <span className={`text-[7.5px] font-semibold whitespace-nowrap ${tempBev.vessel === v.id ? 'text-[#2E7D6B]/80' : 'text-gray-500'}`}>{v.label.match(/\((.*?)\)/)?.[1] || ''}</span>
-                                                            </div>
-                                                        </button>
-                                                    ))}
+                                            {/* Quantity */}
+                                            <div className="col-span-4">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1 text-center">Cups</label>
+                                                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-1 border border-gray-100 h-[38px]">
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))} className="w-8 h-full rounded-lg hover:bg-white text-gray-400 hover:text-red-500 flex items-center justify-center font-bold text-sm transition-colors">-</button>
+                                                    <span className="font-bold text-sm text-gray-800">{tempBev.quantity}</span>
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: prev.quantity + 1 }))} className="w-8 h-full rounded-lg bg-[#2E7D6B] text-white shadow-sm flex items-center justify-center font-bold text-sm">+</button>
+                                                </div>
+                                            </div>
+
+                                            {/* Sugar */}
+                                            <div className="col-span-4">
+                                                <label className="text-[10px] font-black text-yellow-600/60 uppercase tracking-widest block mb-1 text-center">Sugar</label>
+                                                <div className="flex items-center justify-between bg-yellow-50/30 rounded-xl p-1 border border-yellow-100/50 h-[38px]">
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: Math.max(0, prev.sugar - 0.5) }))} className="w-8 h-full rounded-lg hover:bg-white text-yellow-600 hover:text-yellow-700 flex items-center justify-center font-bold text-sm transition-colors">-</button>
+                                                    <span className="font-bold text-sm text-yellow-800">{tempBev.sugar}</span>
+                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: prev.sugar + 0.5 }))} className="w-8 h-full rounded-lg bg-[#FFD166] text-white shadow-sm flex items-center justify-center font-bold text-sm">+</button>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-end gap-2">
-                                            <div className="w-[28%]">
-                                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5 text-center">Cups</label>
-                                                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-0.5 border border-gray-100 h-8">
-                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))} className="w-6 h-full rounded-md hover:bg-white text-gray-400 hover:text-red-500 flex items-center justify-center font-bold text-xs transition-colors">-</button>
-                                                    <span className="font-bold text-xs text-gray-800">{tempBev.quantity}</span>
-                                                    <button onClick={() => setTempBev(prev => ({ ...prev, quantity: prev.quantity + 1 }))} className="w-6 h-full rounded-md bg-[#2E7D6B] text-white shadow-sm flex items-center justify-center font-bold text-xs">+</button>
-                                                </div>
+                                        {/* Row 2: Container (Full Width) */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1 pl-1">Select Size</label>
+                                            <div className="flex gap-2">
+                                                {VESSELS[activeTab].map((v) => (
+                                                    <button
+                                                        key={v.id}
+                                                        onClick={() => setTempBev(prev => ({ ...prev, vessel: v.id }))}
+                                                        className={`flex-1 flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all h-16 ${tempBev.vessel === v.id ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-sm' : 'border-gray-50 bg-gray-50 hover:bg-white hover:border-gray-200'} `}
+                                                    >
+                                                        <img src={v.icon} alt={v.id} className="h-7 w-auto object-contain mb-1" />
+                                                        <div className="leading-tight">
+                                                            <span className={`text-[10px] font-bold block ${tempBev.vessel === v.id ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{v.id}</span>
+                                                            <span className={`text-[8px] font-semibold block ${tempBev.vessel === v.id ? 'text-[#2E7D6B]/80' : 'text-gray-400'}`}>{v.label.match(/\((.*?)\)/)?.[1] || ''}</span>
+                                                        </div>
+                                                    </button>
+                                                ))}
                                             </div>
-
-                                            <div className="w-[28%]">
-                                                <label className="text-[9px] font-black text-yellow-600/60 uppercase tracking-widest block mb-0.5 text-center">Sugar(tsp)</label>
-                                                <div className="flex items-center justify-between bg-yellow-50/30 rounded-lg p-0.5 border border-yellow-100/50 h-8">
-                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: Math.max(0, prev.sugar - 0.5) }))} className="w-6 h-full rounded-md hover:bg-white text-yellow-600 hover:text-yellow-700 flex items-center justify-center font-bold text-xs transition-colors">-</button>
-                                                    <span className="font-bold text-xs text-yellow-800">{tempBev.sugar}</span>
-                                                    <button onClick={() => setTempBev(prev => ({ ...prev, sugar: prev.sugar + 0.5 }))} className="w-6 h-full rounded-md bg-[#FFD166] text-white shadow-sm flex items-center justify-center font-bold text-xs">+</button>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={handleAddRefreshment}
-                                                className="flex-1 h-8 bg-gray-900 text-white rounded-lg font-bold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1 hover:bg-black mt-auto"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                                Add
-                                            </button>
                                         </div>
+
+                                        {/* Row 3: Add Button */}
+                                        <button
+                                            onClick={handleAddRefreshment}
+                                            className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-black"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                            Add {activeTab} to Schedule
+                                        </button>
                                     </div>
                                 </div>
 
