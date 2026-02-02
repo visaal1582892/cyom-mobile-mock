@@ -605,7 +605,7 @@ const MealCreationPage = () => {
 
                                             {/* Sugar */}
                                             <div className="col-span-4">
-                                                <label className="text-[10px] font-black text-yellow-600/60 uppercase tracking-widest block mb-1 text-center">Sugar</label>
+                                                <label className="text-[10px] font-black text-yellow-600/60 uppercase tracking-widest block mb-1 text-center">Sugar(tsp)</label>
                                                 <div className="flex items-center justify-between bg-yellow-50/30 rounded-xl p-1 border border-yellow-100/50 h-[38px]">
                                                     <button onClick={() => setTempBev(prev => ({ ...prev, sugar: Math.max(0, prev.sugar - 0.5) }))} className="w-8 h-full rounded-lg hover:bg-white text-yellow-600 hover:text-yellow-700 flex items-center justify-center font-bold text-sm transition-colors">-</button>
                                                     <span className="font-bold text-sm text-yellow-800">{tempBev.sugar}</span>
