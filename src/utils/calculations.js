@@ -54,14 +54,40 @@ export const calculateTargetCalories = (currentWeight, height, age, gender, acti
     return Math.round(target);
 };
 
-export const calculateMealTargets = (totalCalories) => {
-    // Breakdown: 25% Breakfast, 40% Lunch, 15% Snacks, 20% Dinner
-    return {
-        breakfast: Math.round(totalCalories * 0.25),
-        lunch: Math.round(totalCalories * 0.40),
-        snacks: Math.round(totalCalories * 0.15),
-        dinner: Math.round(totalCalories * 0.20)
+export const calculateMealTargets = (totalCalories, selectedSlots = ['breakfast', 'lunch', 'snacks', 'dinner']) => {
+    // Base ratios (Standard 5-meal split approx)
+    const baseRatios = {
+        breakfast: 0.25,
+        morningSnack: 0.10,
+        lunch: 0.35,
+        snacks: 0.10, // Evening Snacks
+        dinner: 0.20
     };
+
+    // 1. Filter ratios for selected slots
+    let activeRatios = {};
+    let totalRatio = 0;
+
+    selectedSlots.forEach(slot => {
+        if (baseRatios[slot] !== undefined) {
+            activeRatios[slot] = baseRatios[slot];
+            totalRatio += baseRatios[slot];
+        }
+    });
+
+    // If no valid slots (shouldn't happen), default to breakfast
+    if (totalRatio === 0) {
+        activeRatios = { breakfast: 1 };
+        totalRatio = 1;
+    }
+
+    // 2. Distribute Total Calories based on normalized ratios
+    const targets = {};
+    Object.keys(activeRatios).forEach(slot => {
+        targets[slot] = Math.round(totalCalories * (activeRatios[slot] / totalRatio));
+    });
+
+    return targets;
 };
 
 export const calculateMacroTargets = (calories, weightInKg) => {

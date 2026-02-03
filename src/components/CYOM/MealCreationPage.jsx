@@ -43,14 +43,21 @@ const MealCreationPage = () => {
         currentWeight: userData.weight,
         currentHeight: userData.height,
         activityLevel: 'Lightly Active',
-        targetWeightLoss: '',
+        targetWeightLoss: 0,
         goalDuration: '1 Month', // Default to 1 Month
         proteinPreference: 'Moderate',
         dietPreference: 'Vegetarian',
         cuisineStyle: 'North Indian',
         planDuration: '1 Day',
         allergies: [],
-        beverageSchedule: [] // Adapted structure to match MealPlannerPage requirements
+        beverageSchedule: [],
+        selectedMeals: {
+            breakfast: true,
+            morningSnack: false,
+            lunch: true,
+            snacks: true, // Evening Snack
+            dinner: true
+        }
     });
 
     const [currentStep, setCurrentStep] = useState(1);
@@ -121,7 +128,7 @@ const MealCreationPage = () => {
             alert(`For ${formData.goalDuration}, maximum weight loss allowed is ${max}kg.`);
             return false;
         }
-        if (!formData.currentWeight || !formData.currentHeight || !formData.targetWeightLoss) {
+        if (!formData.currentWeight || !formData.currentHeight || formData.targetWeightLoss === '') {
             alert("Please fill in all fields.");
             return false;
         }
@@ -129,8 +136,10 @@ const MealCreationPage = () => {
     };
 
     const handleNext = () => {
-        if (validateStep1()) {
-            setCurrentStep(2);
+        if (currentStep === 1) {
+            if (validateStep1()) setCurrentStep(2);
+        } else if (currentStep === 2) {
+            setCurrentStep(3);
         }
     };
 
@@ -353,10 +362,11 @@ const MealCreationPage = () => {
                         {/* Progress Header */}
                         <div className="flex justify-between items-center mb-8">
                             <div className="flex gap-2">
-                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep === 1 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-green-400'}`}></div>
-                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep === 2 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 1 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
                             </div>
-                            <span className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Phase {currentStep} of 2</span>
+                            <span className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Phase {currentStep} of 3</span>
                         </div>
 
                         {currentStep === 1 ? (
@@ -511,7 +521,7 @@ const MealCreationPage = () => {
                                     </button>
                                 </div>
                             </div>
-                        ) : (
+                        ) : currentStep === 2 ? (
                             <div className="space-y-3 animate-fade-in text-gray-800">
                                 <div className="mb-2">
                                     <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
@@ -655,12 +665,71 @@ const MealCreationPage = () => {
                                         Back
                                     </button>
                                     <button
-                                        onClick={handleCreateMeal}
+                                        onClick={handleNext}
                                         className="flex-1 py-3 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold shadow-xl shadow-[#2E7D6B]/40 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                    >
+                                        Next
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            // Step 3: Meal Selection
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="text-center mb-6">
+                                    <h2 className="text-2xl font-black text-[#2E7D6B] mb-2">Select Your Meals</h2>
+                                    <p className="text-gray-500 text-sm">Which meals do you want to plan for?</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3">
+                                    {[
+                                        { id: 'breakfast', label: 'Breakfast', icon: '🍳', time: '8:00 AM' },
+                                        { id: 'morningSnack', label: 'Morning Snack', icon: '🍎', time: '11:00 AM' },
+                                        { id: 'lunch', label: 'Lunch', icon: '🍛', time: '1:00 PM' },
+                                        { id: 'snacks', label: 'Evening Snack', icon: '☕', time: '5:00 PM' },
+                                        { id: 'dinner', label: 'Dinner', icon: '🥣', time: '8:00 PM' }
+                                    ].map((meal) => (
+                                        <div
+                                            key={meal.id}
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                selectedMeals: { ...prev.selectedMeals, [meal.id]: !prev.selectedMeals[meal.id] }
+                                            }))}
+                                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${formData.selectedMeals[meal.id] ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {meal.icon}
+                                                </div>
+                                                <div>
+                                                    <div className={`font-bold ${formData.selectedMeals[meal.id] ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{meal.label}</div>
+                                                </div>
+                                            </div>
+                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] border-[#2E7D6B]' : 'border-gray-300'}`}>
+                                                {formData.selectedMeals[meal.id] && (
+                                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="pt-4 flex gap-4">
+                                    <button
+                                        onClick={() => setCurrentStep(2)}
+                                        className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition-all active:scale-95 shadow-sm"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleCreateMeal}
+                                        className="flex-1 py-4 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                                     >
                                         Create My Plan
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                         </svg>
                                     </button>
                                 </div>

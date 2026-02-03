@@ -152,27 +152,33 @@ const MealPlannerPage = () => {
                 setPreferences(saved.stats.preferences || {});
                 setPlanName(saved.name || "");
             } else {
-                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, goalDuration, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [] } = location.state;
+                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, goalDuration, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [], selectedMeals = { breakfast: true, lunch: true, snacks: true, dinner: true } } = location.state;
                 const bmr = calculateBMR(currentWeight, currentHeight, userData.age, userData.gender);
                 const tdee = calculateTDEE(bmr, activityLevel);
                 const target = calculateTargetCalories(currentWeight, currentHeight, userData.age, userData.gender, activityLevel, targetWeightLoss, goalDuration);
                 const targetWeight = currentWeight - targetWeightLoss;
+
+                // Determine Active Slots
+                const allSlots = ['breakfast', 'morningSnack', 'lunch', 'snacks', 'dinner'];
+                const activeSlots = allSlots.filter(s => selectedMeals[s]);
+
+                const split = calculateMealTargets(target, activeSlots);
                 const macros = calculateMacroTargets(target, targetWeight);
-                const split = calculateMealTargets(target);
+
                 setStats({ bmr, tdee, targetCalories: target, mealSplit: split, macroTargets: macros });
-                setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule });
+                setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule, activeSlots });
                 setPlanDuration(parseInt(d) || 1);
-                generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle, allergies, beverageSchedule);
+                generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle, allergies, beverageSchedule, activeSlots);
             }
             setLoading(false);
         } else { setLoading(false); }
     }, [location.state]);
 
-    const generateMultiDayPlan = (days, targets, diet, cuisine, allergies, bevSchedule = []) => {
+    const generateMultiDayPlan = (days, targets, diet, cuisine, allergies, bevSchedule = [], activeSlots = ['breakfast', 'lunch', 'snacks', 'dinner']) => {
         const newPlan = {};
         for (let i = 1; i <= days; i++) {
-            newPlan[i] = { breakfast: [], lunch: [], snacks: [], dinner: [] };
-            ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+            newPlan[i] = { breakfast: [], morningSnack: [], lunch: [], snacks: [], dinner: [] }; // Init all potentially keyable
+            activeSlots.forEach(slot => {
                 // Calculate Beverage Calories for this slot
                 const bevCalories = bevSchedule.reduce((sum, bev) => {
                     const s = bev.slots[slot];
@@ -192,7 +198,10 @@ const MealPlannerPage = () => {
                     if (isAllergic(f)) return false;
 
                     // 1. Cooked & Slot Match
-                    const isCookedAndSlot = f.isCooked && (slot === 'snacks' ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot));
+                    // 1. Cooked & Slot Match
+                    const isCookedAndSlot = f.isCooked && (
+                        (slot === 'snacks' || slot === 'morningSnack') ? f.category === 'Snacks' : f.category.toLowerCase().includes(slot)
+                    );
                     if (!isCookedAndSlot) return false;
 
                     // 2. Strict Diet Match
@@ -710,7 +719,7 @@ const MealPlannerPage = () => {
         data.push(["Day", "Slot", "Item Name", "Weight (g)", "Calories (kcal)", "Protein (g)", "Carbs (g)", "Fats (g)"]);
 
         for (let d = 1; d <= (planDuration || 1); d++) {
-            ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+            (preferences.activeSlots || ['breakfast', 'lunch', 'snacks', 'dinner']).forEach(slot => {
                 const items = plan[d]?.[slot] || [];
                 items.forEach(item => {
                     data.push([
@@ -771,7 +780,7 @@ const MealPlannerPage = () => {
             const tableRows = [];
 
             for (let d = 1; d <= (planDuration || 1); d++) {
-                ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(slot => {
+                (preferences.activeSlots || ['breakfast', 'lunch', 'snacks', 'dinner']).forEach(slot => {
                     const items = plan[d]?.[slot] || [];
                     items.forEach(item => {
                         tableRows.push([
@@ -822,7 +831,7 @@ const MealPlannerPage = () => {
 
 
 
-    const slots = ['breakfast', 'lunch', 'snacks', 'dinner'];
+    const slots = preferences.activeSlots || ['breakfast', 'lunch', 'snacks', 'dinner'];
     const bevDailyTotals = (preferences.beverageSchedule || []).reduce((acc, bev) => {
         let bevCals = 0, bevP = 0, bevC = 0, bevF = 0;
         Object.values(bev.slots).forEach(s => {
@@ -854,103 +863,85 @@ const MealPlannerPage = () => {
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
-            {/* --- HEADER --- */}
-            <div className="bg-white shadow-sm border-b border-gray-100 z-20 sticky top-0">
-                <div className="p-3 sm:p-4 flex justify-between items-center max-w-7xl mx-auto w-full">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <button onClick={() => navigate('/meal-creation')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                        </button>
-                        <div>
-                            <div className="font-black text-lg sm:text-xl text-[#2E7D6B] tracking-tight">MEAL PLANNER</div>
-                            <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-widest">{userData.name} • Day {currentDay}</div>
+            {/* --- NEW COMPACT HEADER --- */}
+            <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
+                {/* Top Row: Back + Targets */}
+                <div className="px-3 py-2 flex items-center gap-3 justify-between">
+                    <button onClick={() => navigate('/meal-creation')} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors flex items-center gap-1 group">
+                        <div className="w-7 h-7 rounded-full bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors">
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </div>
-                    </div>
+                        <span className="text-xs font-bold text-gray-600 group-hover:text-gray-900 hidden sm:block">Back</span>
+                    </button>
 
-                    <div className="flex items-center gap-2 sm:gap-3">
-
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <select
-                                value={currentDay}
-                                onChange={(e) => setCurrentDay(Number(e.target.value))}
-                                className="bg-gray-50 border border-gray-200 text-gray-700 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-xl outline-none focus:border-[#2E7D6B] transition-colors"
-                            >
-                                {Array.from({ length: planDuration || 1 }, (_, i) => i + 1).map(d => (
-                                    <option key={d} value={d}>Day {d}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-
-            {/* --- DAILY SUMMARY TAB (COMPACT) --- */}
-            <div className="max-w-7xl mx-auto mt-2 px-2 sm:px-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3">
-                    <div className="flex flex-row gap-2 sm:gap-4 justify-between items-center">
+                    {/* Compact Targets Summary */}
+                    <div className="flex items-center gap-2 sm:gap-6 flex-1 justify-end">
                         {/* Calories */}
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 sm:border-4 border-[#2E7D6B] flex items-center justify-center shrink-0">
-                                <span className="text-xs sm:text-sm font-black text-[#2E7D6B]">{Math.round((dailyTotal / (stats.targetCalories || 1)) * 100)}%</span>
-                            </div>
-                            <div>
-                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider">Target</div>
-                                <div className="text-sm sm:text-base font-black text-gray-900 leading-tight">
-                                    {dailyTotal} <span className="text-gray-400 text-xs font-medium">/ {stats.targetCalories}</span>
-                                </div>
-                                {bevDailyTotals.calories > 0 && (
-                                    <div className="text-[9px] font-bold text-orange-500 bg-orange-50 px-1.5 rounded mt-0.5 inline-block">
-                                        🥤 Includes {bevDailyTotals.calories} kcal from drinks
-                                    </div>
-                                )}
+                        <div className="text-right">
+                            <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Energy</div>
+                            <div className="text-sm font-black text-[#2E7D6B] leading-none">
+                                {dailyTotal} <span className="text-gray-300 text-xs">/ {stats.targetCalories}</span>
                             </div>
                         </div>
 
-                        {/* Macros PCF */}
-                        <div className="flex items-center gap-2 sm:gap-6">
+                        {/* Macros Text Only */}
+                        <div className="flex gap-4 sm:gap-6 border-l border-gray-100 pl-4 sm:pl-6">
                             {/* Protein */}
-                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Prot</div>
-                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyProtein} <span className="text-gray-300">/ {targetP}</span></div>
-                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
-                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min((dailyProtein / (targetP || 1)) * 100, 100)}%` }}></div>
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Protein</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={dailyProtein > targetP ? 'text-red-500' : ''}>{dailyProtein}</span>
+                                    <span className="text-gray-300 font-medium text-xs"> / {targetP}g</span>
                                 </div>
                             </div>
                             {/* Carbs */}
-                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Carbs</div>
-                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyCarbs} <span className="text-gray-300">/ {targetC}</span></div>
-                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
-                                    <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min((dailyCarbs / (targetC || 1)) * 100, 100)}%` }}></div>
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Carbs</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={dailyCarbs > targetC ? 'text-red-500' : ''}>{dailyCarbs}</span>
+                                    <span className="text-gray-300 font-medium text-xs"> / {targetC}g</span>
                                 </div>
                             </div>
                             {/* Fats */}
-                            <div className="text-center min-w-[50px] sm:min-w-[60px]">
-                                <div className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase mb-0.5">Fats</div>
-                                <div className="text-sm sm:text-base font-bold text-gray-700 leading-none">{dailyFats} <span className="text-gray-300">/ {targetF}</span></div>
-                                <div className="h-0.5 sm:h-1 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
-                                    <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((dailyFats / (targetF || 1)) * 100, 100)}%` }}></div>
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Fats</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={dailyFats > targetF ? 'text-red-500' : ''}>{dailyFats}</span>
+                                    <span className="text-gray-300 font-medium text-xs"> / {targetF}g</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* NUTRIENT CATEGORY SELECTOR (ABOVE TABLE) */}
-            <div className="max-w-7xl mx-auto mt-6 px-2 sm:px-6 flex justify-end">
-                <div className="bg-gray-100 p-1 rounded-xl inline-flex shadow-inner">
-                    {Object.values(NUTRIENT_CATEGORIES).map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setNutrientCategory(cat)}
-                            className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${nutrientCategory === cat ? 'bg-white text-[#2E7D6B] shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                {/* Bottom Row: Controls */}
+                <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-t border-gray-100">
+                    {/* Day Select */}
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={currentDay}
+                            onChange={(e) => setCurrentDay(Number(e.target.value))}
+                            className="bg-white border border-gray-200 text-gray-700 text-xs font-bold py-1.5 px-3 rounded-lg outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B] shadow-sm cursor-pointer"
                         >
-                            {cat === 'Macronutrients' ? 'Macros' : cat}
-                        </button>
-                    ))}
+                            {Array.from({ length: planDuration || 1 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={d}>Day {d}</option>
+                            ))}
+                        </select>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:block">Viewing Day {currentDay} of {planDuration}</span>
+                    </div>
+
+                    {/* Nutrient Category Select */}
+                    <div className="flex bg-gray-200/50 p-0.5 rounded-lg">
+                        {Object.values(NUTRIENT_CATEGORIES).map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setNutrientCategory(cat)}
+                                className={`px-3 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all ${nutrientCategory === cat ? 'bg-white text-[#2E7D6B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                {cat === 'Macronutrients' ? 'Macros' : cat}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -1040,9 +1031,13 @@ const MealPlannerPage = () => {
                                         <tr className="bg-[#2E7D6B]/5">
                                             <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-[#f0fdf9] z-10 border-r border-[#2E7D6B]/10 shadow-[2px_0_5px_-2px_rgba(46,125,107,0.1)]">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-base sm:text-lg">{slot === 'breakfast' ? '🌅' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '🍎' : '🌙'}</span>
+                                                    <span className="text-base sm:text-lg">
+                                                        {slot === 'breakfast' ? '🌅' : slot === 'morningSnack' ? '🍎' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '☕' : '🌙'}
+                                                    </span>
                                                     <div>
-                                                        <div className="font-black text-sm sm:text-base uppercase text-[#2E7D6B] tracking-wide">{slot}</div>
+                                                        <div className="font-black text-sm sm:text-base uppercase text-[#2E7D6B] tracking-wide">
+                                                            {slot === 'morningSnack' ? 'Morning Snack' : slot === 'snacks' ? 'Evening Snack' : slot}
+                                                        </div>
                                                         <div className="text-[10px] sm:text-xs text-gray-400 font-medium">Requirements</div>
                                                     </div>
                                                 </div>
