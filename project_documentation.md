@@ -78,15 +78,15 @@ The baseline for all planning logic is derived using the standard **Mifflin-St J
     *   Moderate: `1.55`
     *   Very Active: `1.725`
 
-**Step 3: Determine Calorie Target (Target Body Approach)**
-Instead of using a generic deficit, the system calculates the maintenance calories required for the user's *ideal* weight.
+**Step 3: Determine Calorie Target (Goal Duration Approach)**
+The system calculates the daily calorie target based on the total deficit required to achieve the weight loss within the specified timeframe.
 
-1.  **Calculate Target Weight**: `TargetWeight = CurrentWeight - TargetLoss`
-2.  **Calculate Target BMR**: Recalculate BMR using the `TargetWeight` (and user's same Height/Age/Gender).
-3.  **Calculate Target TDEE**: multiply Target BMR by the Activity Multiplier.
-4.  **Final Target**: `Target Calories = Target TDEE`
-
-*This approach ensures the user is eating for the body they *want*, which naturally creates a sustainable deficit.*
+1.  **Calculate Current TDEE**: `CurrentTDEE = CalculateBMR(CurrentWeight) × ActivityMultiplier`
+2.  **Determine Total Deficit**: `TotalDeficit = TargetWeightLossKG × 7700 kcal` (Approx. energy in 1kg fat)
+3.  **Calculate Daily Deficit**: `DailyDeficit = TotalDeficit / DurationDays`
+    *   *Duration*: Derived from user selection (1 Month = 30 days, etc.)
+4.  **Final Target**: `Target Calories = CurrentTDEE - DailyDeficit`
+    *   *Safety Floor*: The target is restricted to a minimum of 1200 kcal to prevent unsafe starvation plans.
 
 ### 3.2. Target Distribution & Splits
 The detailed breakdown of how the daily calorie budget is allocated across meal slots and macronutrients.

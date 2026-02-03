@@ -20,18 +20,38 @@ export const calculateTDEE = (bmr, activityLevel) => {
     return Math.round(bmr * multiplier);
 };
 
-export const calculateTargetCalories = (currentWeight, height, age, gender, activityLevel, targetWeightLossKG) => {
-    // 1. Determine Target Weight
-    const targetWeight = currentWeight - targetWeightLossKG;
+export const calculateTargetCalories = (currentWeight, height, age, gender, activityLevel, targetWeightLossKG, goalDuration) => {
+    // 1. Calculate Current BMR & TDEE (Maintenance for current body)
+    const currentBMR = calculateBMR(currentWeight, height, age, gender);
+    const currentTDEE = calculateTDEE(currentBMR, activityLevel);
 
-    // 2. Calculate BMR for the Target Weight
-    // reuse local function if possible, or copy logic. Since calculateBMR is in scope, we call it.
-    const targetBMR = calculateBMR(targetWeight, height, age, gender);
+    // If no weight loss needed, return maintenance
+    if (!targetWeightLossKG || targetWeightLossKG <= 0) return currentTDEE;
 
-    // 3. Calculate TDEE for Target Weight (This is the new Target Intake)
-    const targetTDEE = calculateTDEE(targetBMR, activityLevel);
+    // 2. Determine Duration in Days
+    let days = 30; // Default to 1 Month
+    if (goalDuration) {
+        if (goalDuration.includes('1 Month')) days = 30;
+        else if (goalDuration.includes('3 Months')) days = 90;
+        else if (goalDuration.includes('6 Months')) days = 180;
+    }
 
-    return targetTDEE;
+    // 3. Calculate Total Calorie Deficit Required
+    // Approx 7700 kcal per kg of fat loss
+    const totalDeficit = targetWeightLossKG * 7700;
+
+    // 4. Calculate Daily Deficit
+    const dailyDeficit = Math.round(totalDeficit / days);
+
+    // 5. Calculate Target
+    let target = currentTDEE - dailyDeficit;
+
+    // 6. Safety Floor
+    // Ensure we don't drop below a safe minimum (e.g., 1200 kcal or BMR-500)
+    // Using 1200 as a hard safe floor for this mock.
+    if (target < 1200) target = 1200;
+
+    return Math.round(target);
 };
 
 export const calculateMealTargets = (totalCalories) => {

@@ -635,13 +635,15 @@ const MealCreationPage = () => {
                                         </div>
 
                                         {/* Row 3: Add Button */}
-                                        <button
-                                            onClick={handleAddRefreshment}
-                                            className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-black"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                            Add {activeTab} to Schedule
-                                        </button>
+                                        <div className="flex justify-center pt-2">
+                                            <button
+                                                onClick={handleAddRefreshment}
+                                                className="px-8 py-2 bg-gray-900 text-white rounded-lg font-bold text-sm shadow-md active:scale-95 transition-all flex items-center gap-2 hover:bg-black"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                                Add
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
