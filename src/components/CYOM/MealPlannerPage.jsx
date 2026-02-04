@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
+import TeaTabIcon from '../../assets/tea_tab.png';
+import CoffeeTabIcon from '../../assets/coffee_tab.png';
+import MilkTabIcon from '../../assets/milk_tab.png';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -1301,7 +1304,11 @@ const MealPlannerPage = () => {
                                                 <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
                                                     <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0">🥤</div>
+                                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0 overflow-hidden p-1">
+                                                                {bev.name === 'Tea' ? <img src={TeaTabIcon} alt="Tea" className="w-full h-full object-contain" /> :
+                                                                    bev.name === 'Coffee' ? <img src={CoffeeTabIcon} alt="Coffee" className="w-full h-full object-contain" /> :
+                                                                        <img src={MilkTabIcon} alt="Milk" className="w-full h-full object-contain" />}
+                                                            </div>
                                                             <div>
                                                                 <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
                                                                     {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">w/ {s.sugarTabs} tbsp sugar</span>}

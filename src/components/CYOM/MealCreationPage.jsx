@@ -677,13 +677,13 @@ const MealCreationPage = () => {
                             </div>
                         ) : (
                             // Step 3: Meal Selection
-                            <div className="space-y-6 animate-fade-in">
-                                <div className="text-center mb-6">
-                                    <h2 className="text-2xl font-black text-[#2E7D6B] mb-2">Select Your Meals</h2>
-                                    <p className="text-gray-500 text-sm">Which meals do you want to plan for?</p>
+                            <div className="space-y-4 animate-fade-in">
+                                <div className="text-center mb-4">
+                                    <h2 className="text-xl font-black text-[#2E7D6B] mb-1">Select Your Meals</h2>
+                                    <p className="text-gray-500 text-xs">Which meals do you want to plan for?</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-1 gap-2">
                                     {[
                                         { id: 'breakfast', label: 'Breakfast', icon: '🍳', time: '8:00 AM' },
                                         { id: 'morningSnack', label: 'Morning Snack', icon: '🍎', time: '11:00 AM' },
@@ -697,19 +697,19 @@ const MealCreationPage = () => {
                                                 ...prev,
                                                 selectedMeals: { ...prev.selectedMeals, [meal.id]: !prev.selectedMeals[meal.id] }
                                             }))}
-                                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${formData.selectedMeals[meal.id] ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${formData.selectedMeals[meal.id] ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-sm' : 'border-gray-100 bg-white hover:border-gray-200'}`}
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] text-white' : 'bg-gray-100 text-gray-500'}`}>
                                                     {meal.icon}
                                                 </div>
                                                 <div>
-                                                    <div className={`font-bold ${formData.selectedMeals[meal.id] ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{meal.label}</div>
+                                                    <div className={`font-bold text-sm ${formData.selectedMeals[meal.id] ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{meal.label}</div>
                                                 </div>
                                             </div>
-                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] border-[#2E7D6B]' : 'border-gray-300'}`}>
+                                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] border-[#2E7D6B]' : 'border-gray-300'}`}>
                                                 {formData.selectedMeals[meal.id] && (
-                                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                                 )}
                                             </div>
                                         </div>
