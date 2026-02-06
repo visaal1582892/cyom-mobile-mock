@@ -9,6 +9,9 @@ import MealPlannerPage from './components/CYOM/MealPlannerPage';
 import SavedPlansPage from './components/CYOM/SavedPlansPage';
 import UserProfilePage from './components/CYOM/UserProfilePage';
 
+import CYOMDashboard from './components/CYOM/CYOMDashboard';
+import MealTrackerPage from './components/CYOM/MealTrackerPage';
+
 function App() {
   return (
     <div className="bg-gray-100 min-h-screen w-full">
@@ -23,6 +26,8 @@ function App() {
           <Route path="/saved-plans" element={<SavedPlansPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/dashboard" element={<WellnessTab />} />
+          <Route path="/cyom-dashboard" element={<CYOMDashboard />} />
+          <Route path="/meal-tracker" element={<MealTrackerPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

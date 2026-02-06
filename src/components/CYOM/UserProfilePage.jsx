@@ -87,6 +87,9 @@ const UserProfilePage = () => {
                                 </button>
                             </div>
                             <div className="space-y-2">
+                                <button onClick={() => { navigate('/cyom-dashboard'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
+                                    <span className="text-lg">📊</span> Dashboard
+                                </button>
                                 <button onClick={() => { navigate('/goal-selection'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
                                     <span className="text-lg">🎯</span> Goal Selection
                                 </button>
@@ -117,8 +120,8 @@ const UserProfilePage = () => {
                         <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-r from-[#2E7D6B]/20 to-[#A8E6CF]/20"></div>
 
                         <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center text-3xl mb-4">
-                                👤
+                            <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden mb-4">
+                                <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
                             </div>
                             {isEditing ? (
                                 <input

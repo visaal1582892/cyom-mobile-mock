@@ -2,24 +2,38 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 
-const GoalSelectionPage = () => {
+const CYOMDashboard = () => {
     const navigate = useNavigate();
-    const [showPopup, setShowPopup] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-    const handleGoalSelect = (goal) => {
-        if (goal === 'weight-loss') {
-            navigate('/meal-creation');
-        } else {
-            setShowPopup(true);
-            setTimeout(() => setShowPopup(false), 2000);
-        }
-    };
 
     const handleLogout = () => {
         navigate('/login');
     };
+
+    const options = [
+        {
+            title: "Create New Plan",
+            path: "/goal-selection",
+            iconEmoji: "📝",
+            colorClass: "bg-orange-50 text-orange-500",
+            hoverClass: "group-hover:text-orange-600"
+        },
+        {
+            title: "Track Your Meal",
+            path: "/meal-tracker",
+            iconEmoji: "🥗",
+            colorClass: "bg-green-50 text-[#2E7D6B]",
+            hoverClass: "group-hover:text-[#2E7D6B]"
+        },
+        {
+            title: "Saved Plans",
+            path: "/saved-plans",
+            iconEmoji: "📂",
+            colorClass: "bg-blue-50 text-blue-500",
+            hoverClass: "group-hover:text-blue-600"
+        }
+    ];
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -30,20 +44,19 @@ const GoalSelectionPage = () => {
             {/* Header / Status Bar Area */}
             <div className="pt-6 px-6 flex justify-between items-center relative z-20">
                 <div className="flex items-center gap-4">
-                    {/* Hamburger Menu */}
                     <button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                         </svg>
                     </button>
-
                     <div>
                         <div className="text-xs opacity-80 font-medium text-green-100">Welcome</div>
-                        <div className="text-lg font-bold">{userData.name}!</div>
+                        <div className="flex items-center gap-2">
+                            <div className="text-lg font-bold">{userData.name}! </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Profile Image & Dropdown */}
                 <div className="relative">
                     <button
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -52,7 +65,6 @@ const GoalSelectionPage = () => {
                         <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
                     </button>
 
-                    {/* Profile Dropdown */}
                     {isProfileOpen && (
                         <>
                             <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
@@ -88,9 +100,9 @@ const GoalSelectionPage = () => {
                 </div>
             </div>
 
-            {/* Sidebar Menu (Drawer) */}
+            {/* Sidebar Menu */}
             {isMenuOpen && (
-                <div className="fixed inset-0 z-50 flex">
+                <div className="fixed inset-0 z-50 flex text-[#1F2933]">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
                     <div className="relative w-3/4 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between animate-slide-in-left">
                         <div>
@@ -115,96 +127,48 @@ const GoalSelectionPage = () => {
                                 <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
                                     <span className="text-lg">🏠</span> Back to Home
                                 </button>
-                                <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3 opacity-50 cursor-not-allowed">
-                                    <span className="text-lg">⚙️</span> Settings (Soon)
-                                </button>
                             </div>
                         </div>
-                        <div className="text-center text-xs text-gray-400">
-                            v1.0.0 CYOM Beta
-                        </div>
+                        <div className="text-center text-xs text-gray-400">v1.0.0 CYOM Beta</div>
                     </div>
                 </div>
             )}
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
-
                 <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[40px] shadow-2xl">
                     <div className="text-center mb-8 text-white">
-                        <h2 className="text-2xl font-bold mb-1">What is your goal?</h2>
-                        <p className="opacity-80 text-sm">Select a path to start your journey</p>
+                        <h2 className="text-2xl font-bold mb-1">What would you like to do?</h2>
+                        <p className="opacity-80 text-sm">Select an option to proceed</p>
                     </div>
 
                     <div className="space-y-4">
-                        <button
-                            onClick={() => handleGoalSelect('weight-loss')}
-                            className="w-full h-20 px-6 bg-white hover:bg-white/90 border-2 border-transparent rounded-3xl flex items-center justify-between shadow-lg transition-all transform hover:-translate-y-1 group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-[#E0F2F1] text-[#2E7D6B] flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                                    📉
+                        {options.map((opt, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => navigate(opt.path)}
+                                className="w-full h-20 px-6 bg-white hover:bg-white/90 border-2 border-transparent rounded-3xl flex items-center justify-between shadow-lg transition-all transform hover:-translate-y-1 group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-10 h-10 rounded-full ${opt.colorClass} flex items-center justify-center text-xl group-hover:scale-110 transition-transform`}>
+                                        {opt.iconEmoji}
+                                    </div>
+                                    <span className="font-bold text-lg text-[#1F2933] group-hover:text-[#2E7D6B] transition-colors">{opt.title}</span>
                                 </div>
-                                <span className="font-bold text-lg text-[#1F2933]">Weight Loss</span>
-                            </div>
-                            <div className="p-2 bg-[#2E7D6B]/10 rounded-full text-[#2E7D6B] transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => handleGoalSelect('maintenance')}
-                            className="w-full h-20 px-6 bg-white/10 hover:bg-white/20 border border-white/30 rounded-3xl flex items-center justify-between shadow-sm transition-all transform hover:-translate-y-1 group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                                    ⚖️
+                                <div className="p-2 bg-[#2E7D6B]/10 rounded-full text-[#2E7D6B] transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                    </svg>
                                 </div>
-                                <span className="font-bold text-lg text-white">Maintenance</span>
-                            </div>
-                            <div className="p-2 bg-white/10 rounded-full text-white transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => handleGoalSelect('weight-gain')}
-                            className="w-full h-20 px-6 bg-white/10 hover:bg-white/20 border border-white/30 rounded-3xl flex items-center justify-between shadow-sm transition-all transform hover:-translate-y-1 group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                                    💪
-                                </div>
-                                <span className="font-bold text-lg text-white">Weight Gain</span>
-                            </div>
-                            <div className="p-2 bg-white/10 rounded-full text-white transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
+                            </button>
+                        ))}
                     </div>
                 </div>
+
+
             </div>
-
-            {/* Popup Notification */}
-            {showPopup && (
-                <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-50 animate-bounce">
-                    <div className="bg-[#1F2933] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
-                        <span className="bg-white/20 p-1 rounded-md">🚧</span>
-                        <div>
-                            <div className="font-bold text-sm">Coming Soon</div>
-                            <div className="text-xs opacity-80">This module is under development</div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
-export default GoalSelectionPage;
+export default CYOMDashboard;

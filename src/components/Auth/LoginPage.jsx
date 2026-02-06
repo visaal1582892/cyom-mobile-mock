@@ -33,10 +33,15 @@ const LoginPage = () => {
             setError('Invalid OTP');
             return;
         }
-        // Redirect to Goal Selection
+        // Redirect Logic: Check if user has saved plans
         setLoading(true);
         setTimeout(() => {
-            navigate('/goal-selection');
+            const savedPlans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
+            if (savedPlans.length > 0) {
+                navigate('/cyom-dashboard');
+            } else {
+                navigate('/goal-selection');
+            }
         }, 1000);
     };
 

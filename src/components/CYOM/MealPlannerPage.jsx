@@ -27,14 +27,20 @@ const NUTRIENT_CATEGORIES = {
 };
 
 const MICRO_TARGETS = {
-    vitA: 3000, // IU
-    vitC: 90,   // mg
-    vitD: 600,  // IU
-    b12: 2.4,   // mcg
-    iron: 18,   // mg
-    calcium: 1000, // mg
-    magnesium: 400, // mg
-    zinc: 11    // mg
+    // Vitamins (B, C, E, K)
+    vitB: 2.4,   // mcg (generic B/B12 proxy)
+    vitC: 90,    // mg
+    vitE: 15,    // mg
+    vitK: 120,   // mcg
+
+    // Minerals (Ca, Fe, Ph, Mg, K, Na, Zn)
+    calcium: 1000,   // mg
+    iron: 18,        // mg
+    phosphorus: 700, // mg
+    magnesium: 400,  // mg
+    potassium: 3500, // mg
+    sodium: 2300,    // mg
+    zinc: 11         // mg
 };
 
 // --- MAIN PAGE ---
@@ -55,6 +61,7 @@ const MealPlannerPage = () => {
     const [expandedMeals, setExpandedMeals] = useState({}); // { [mealUuid]: boolean }
     const [activeBoosterTab, setActiveBoosterTab] = useState({}); // { [mealUuid]: 'Protein' | 'Carb' | 'Fat' }
     const [nutrientCategory, setNutrientCategory] = useState(NUTRIENT_CATEGORIES.MACROS);
+    const [mineralPage, setMineralPage] = useState(0); // 0: Ca..Mg, 1: K..Zn
 
     const toggleMeal = (uuid) => {
         setExpandedMeals(prev => ({ ...prev, [uuid]: !prev[uuid] }));
@@ -236,16 +243,19 @@ const MealPlannerPage = () => {
         const rand = (mod) => (seed % mod);
 
         const mockVits = {
-            vitA: Math.round((baseItem.type === 'veg' ? 500 : 100) * ratio + rand(50)),
-            vitC: Math.round((baseItem.type === 'veg' ? 20 : 0) * ratio + rand(10)),
-            vitD: Math.round((baseItem.type === 'non-veg' || baseItem.subType === 'Dairy' ? 100 : 0) * ratio + rand(20)),
-            b12: parseFloat(((baseItem.type === 'non-veg' ? 1.5 : 0) * ratio).toFixed(1))
+            vitB: parseFloat(((baseItem.type === 'non-veg' || baseItem.subType === 'Grain' ? 1.5 : 0.5) * ratio).toFixed(1)), // B-Complex proxy
+            vitC: Math.round((baseItem.type === 'veg' || baseItem.subType === 'Fruit' ? 20 : 0) * ratio + rand(10)),
+            vitE: Math.round((baseItem.subType === 'Grain' || baseItem.subType === 'Nut' ? 5 : 0.5) * ratio + rand(2)),
+            vitK: Math.round((baseItem.type === 'veg' ? 40 : 2) * ratio + rand(15))
         };
         const mockMins = {
             iron: parseFloat(((baseItem.type === 'non-veg' ? 3 : 1) * ratio).toFixed(1)),
             calcium: Math.round((baseItem.subType === 'Dairy' ? 200 : 20) * ratio + rand(30)),
             magnesium: Math.round(50 * ratio + rand(20)),
-            zinc: parseFloat((5 * ratio + rand(2) / 10).toFixed(1))
+            zinc: parseFloat((5 * ratio + rand(2) / 10).toFixed(1)),
+            phosphorus: Math.round((baseItem.type === 'non-veg' || baseItem.subType === 'Dairy' ? 150 : 40) * ratio + rand(20)),
+            potassium: Math.round((baseItem.type === 'veg' || baseItem.subType === 'Fruit' ? 300 : 100) * ratio + rand(50)),
+            sodium: Math.round((baseItem.isCooked ? 250 : 20) * ratio + rand(10))
         };
 
         return {
@@ -269,16 +279,19 @@ const MealPlannerPage = () => {
                 scaledFats: Math.round((c.fats || 0) * ratio),
                 // Simple proportional mock for composition items
                 scaledVits: {
-                    vitA: Math.round(mockVits.vitA / (baseItem.composition.length || 1)),
+                    vitB: parseFloat((mockVits.vitB / (baseItem.composition.length || 1)).toFixed(1)),
                     vitC: Math.round(mockVits.vitC / (baseItem.composition.length || 1)),
-                    vitD: Math.round(mockVits.vitD / (baseItem.composition.length || 1)),
-                    b12: parseFloat((mockVits.b12 / (baseItem.composition.length || 1)).toFixed(1))
+                    vitE: Math.round(mockVits.vitE / (baseItem.composition.length || 1)),
+                    vitK: Math.round(mockVits.vitK / (baseItem.composition.length || 1))
                 },
                 scaledMins: {
                     iron: parseFloat((mockMins.iron / (baseItem.composition.length || 1)).toFixed(1)),
                     calcium: Math.round(mockMins.calcium / (baseItem.composition.length || 1)),
                     magnesium: Math.round(mockMins.magnesium / (baseItem.composition.length || 1)),
-                    zinc: parseFloat((mockMins.zinc / (baseItem.composition.length || 1)).toFixed(1))
+                    zinc: parseFloat((mockMins.zinc / (baseItem.composition.length || 1)).toFixed(1)),
+                    phosphorus: Math.round(mockMins.phosphorus / (baseItem.composition.length || 1)),
+                    potassium: Math.round(mockMins.potassium / (baseItem.composition.length || 1)),
+                    sodium: Math.round(mockMins.sodium / (baseItem.composition.length || 1))
                 }
             }))
         };
@@ -870,7 +883,7 @@ const MealPlannerPage = () => {
             <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
                 {/* Top Row: Back + Targets */}
                 <div className="px-3 py-2 flex items-center gap-3 justify-between">
-                    <button onClick={() => navigate('/meal-creation')} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors flex items-center gap-1 group">
+                    <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors flex items-center gap-1 group">
                         <div className="w-7 h-7 rounded-full bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors">
                             <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </div>
@@ -970,18 +983,35 @@ const MealPlannerPage = () => {
                                     )}
                                     {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                         <>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit A <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(IU)</span></th>
+                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit B <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
                                             <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit C <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit D <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(IU)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">B12 <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
+                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit E <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit K <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
                                         </>
                                     )}
                                     {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                         <>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Iron <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Calc <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Magn <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Zinc <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                            {mineralPage === 0 ? (
+                                                <>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Ca <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fe <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Ph <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                    <th className="p-0.5 sm:p-4 pr-3 sm:pr-8 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center relative group cursor-pointer" onClick={() => setMineralPage(1)}>
+                                                        Mg <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span>
+                                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-[#2E7D6B] text-xl sm:text-2xl font-black pb-1">›</span>
+                                                    </th>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <th className="p-0.5 sm:p-4 pl-3 sm:pl-8 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center relative group cursor-pointer" onClick={() => setMineralPage(0)}>
+                                                        <span className="absolute left-1 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-[#2E7D6B] text-xl sm:text-2xl font-black pb-1">‹</span>
+                                                        K <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span>
+                                                    </th>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Na <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Zn <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                    <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center"></th>
+                                                </>
+                                            )}
                                         </>
                                     )}
                                 </tr>
@@ -996,13 +1026,17 @@ const MealPlannerPage = () => {
                                 const reqF = Math.round((stats.macroTargets?.fats || 0) * ratio);
 
                                 // Micro Requirements (Mock)
-                                const reqVitA = Math.round(MICRO_TARGETS.vitA * ratio);
+                                const reqVitB = parseFloat((MICRO_TARGETS.vitB * ratio).toFixed(1));
                                 const reqVitC = Math.round(MICRO_TARGETS.vitC * ratio);
-                                const reqVitD = Math.round(MICRO_TARGETS.vitD * ratio);
-                                const reqB12 = parseFloat((MICRO_TARGETS.b12 * ratio).toFixed(1));
-                                const reqIron = parseFloat((MICRO_TARGETS.iron * ratio).toFixed(1));
+                                const reqVitE = Math.round(MICRO_TARGETS.vitE * ratio);
+                                const reqVitK = Math.round(MICRO_TARGETS.vitK * ratio);
+
                                 const reqCalc = Math.round(MICRO_TARGETS.calcium * ratio);
+                                const reqIron = parseFloat((MICRO_TARGETS.iron * ratio).toFixed(1));
+                                const reqPhos = Math.round(MICRO_TARGETS.phosphorus * ratio);
                                 const reqMagn = Math.round(MICRO_TARGETS.magnesium * ratio);
+                                const reqPotas = Math.round(MICRO_TARGETS.potassium * ratio);
+                                const reqSod = Math.round(MICRO_TARGETS.sodium * ratio);
                                 const reqZinc = parseFloat((MICRO_TARGETS.zinc * ratio).toFixed(1));
 
                                 const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
@@ -1018,14 +1052,17 @@ const MealPlannerPage = () => {
                                 const totalC = items.reduce((a, b) => a + b.macros.carbs, 0);
                                 const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
 
-                                const totalVitA = items.reduce((a, b) => a + (b.vitamins?.vitA || 0), 0);
+                                const totalVitB = parseFloat(items.reduce((a, b) => a + (b.vitamins?.vitB || 0), 0).toFixed(1));
                                 const totalVitC = items.reduce((a, b) => a + (b.vitamins?.vitC || 0), 0);
-                                const totalVitD = items.reduce((a, b) => a + (b.vitamins?.vitD || 0), 0);
-                                const totalB12 = parseFloat(items.reduce((a, b) => a + (b.vitamins?.b12 || 0), 0).toFixed(1));
+                                const totalVitE = items.reduce((a, b) => a + (b.vitamins?.vitE || 0), 0);
+                                const totalVitK = items.reduce((a, b) => a + (b.vitamins?.vitK || 0), 0);
 
-                                const totalIron = parseFloat(items.reduce((a, b) => a + (b.minerals?.iron || 0), 0).toFixed(1));
                                 const totalCalc = items.reduce((a, b) => a + (b.minerals?.calcium || 0), 0);
+                                const totalIron = parseFloat(items.reduce((a, b) => a + (b.minerals?.iron || 0), 0).toFixed(1));
+                                const totalPhos = items.reduce((a, b) => a + (b.minerals?.phosphorus || 0), 0);
                                 const totalMagn = items.reduce((a, b) => a + (b.minerals?.magnesium || 0), 0);
+                                const totalPotas = items.reduce((a, b) => a + (b.minerals?.potassium || 0), 0);
+                                const totalSod = items.reduce((a, b) => a + (b.minerals?.sodium || 0), 0);
                                 const totalZinc = parseFloat(items.reduce((a, b) => a + (b.minerals?.zinc || 0), 0).toFixed(1));
 
                                 return (
@@ -1055,18 +1092,29 @@ const MealPlannerPage = () => {
                                             )}
                                             {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                 <>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitA}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitB}</td>
                                                     <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitD}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqB12}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitE}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitK}</td>
                                                 </>
                                             )}
                                             {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                 <>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIron}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqCalc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqMagn}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqZinc}</td>
+                                                    {mineralPage === 0 ? (
+                                                        <>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqCalc}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIron}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqPhos}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqMagn}</td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqPotas}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqSod}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqZinc}</td>
+                                                            <td className="p-2 sm:p-3 text-center border-l border-white"></td>
+                                                        </>
+                                                    )}
                                                 </>
                                             )}
                                         </tr>
@@ -1118,18 +1166,29 @@ const MealPlannerPage = () => {
                                                         )}
                                                         {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                             <>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitA || 0}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitB || 0}</td>
                                                                 <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitD || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.b12 || 0}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitE || 0}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitK || 0}</td>
                                                             </>
                                                         )}
                                                         {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                             <>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                {mineralPage === 0 ? (
+                                                                    <>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.phosphorus || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.potassium || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.sodium || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                        <td className="p-2 sm:p-3 text-center"></td>
+                                                                    </>
+                                                                )}
                                                             </>
                                                         )}
                                                     </tr>
@@ -1186,18 +1245,29 @@ const MealPlannerPage = () => {
                                                             )}
                                                             {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                                 <>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitA || '-'}</td>
+                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitB || '-'}</td>
                                                                     <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitC || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitD || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.b12 || '-'}</td>
+                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitE || '-'}</td>
+                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitK || '-'}</td>
                                                                 </>
                                                             )}
                                                             {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                                 <>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iron || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.calcium || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.magnesium || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.zinc || '-'}</td>
+                                                                    {mineralPage === 0 ? (
+                                                                        <>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.calcium || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iron || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.phosphorus || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.magnesium || '-'}</td>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.potassium || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.sodium || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.zinc || '-'}</td>
+                                                                            <td className="p-1 sm:p-2 text-center"></td>
+                                                                        </>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </tr>
@@ -1219,18 +1289,29 @@ const MealPlannerPage = () => {
                                                                 )}
                                                                 {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                                     <>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitA || 0}</td>
+                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitB || 0}</td>
                                                                         <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitD || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.b12 || 0}</td>
+                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitE || 0}</td>
+                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitK || 0}</td>
                                                                     </>
                                                                 )}
                                                                 {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                                     <>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                        {mineralPage === 0 ? (
+                                                                            <>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.phosphorus || 0}</td>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.potassium || 0}</td>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.sodium || 0}</td>
+                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                                <td className="p-2 text-center"></td>
+                                                                            </>
+                                                                        )}
                                                                     </>
                                                                 )}
                                                             </tr>
@@ -1345,18 +1426,29 @@ const MealPlannerPage = () => {
                                             )}
                                             {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                 <>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitA}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitB}</td>
                                                     <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitD}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalB12}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitE}</td>
+                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitK}</td>
                                                 </>
                                             )}
                                             {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                 <>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIron}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalCalc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalMagn}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalZinc}</td>
+                                                    {mineralPage === 0 ? (
+                                                        <>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalCalc}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIron}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalPhos}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalMagn}</td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalPotas}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalSod}</td>
+                                                            <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalZinc}</td>
+                                                            <td className="p-2 sm:p-3 text-center"></td>
+                                                        </>
+                                                    )}
                                                 </>
                                             )}
                                         </tr>

@@ -277,9 +277,7 @@ const MealCreationPage = () => {
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                         className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-md hover:border-white transition-all"
                     >
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-[10px]">
-                            USER
-                        </div>
+                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
                     </button>
 
                     {isProfileOpen && (
@@ -332,6 +330,9 @@ const MealCreationPage = () => {
                                 </button>
                             </div>
                             <div className="space-y-2">
+                                <button onClick={() => { navigate('/cyom-dashboard'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
+                                    <span className="text-lg">📊</span> Dashboard
+                                </button>
                                 <button onClick={() => { navigate('/goal-selection'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl bg-[#F0FDF9] text-[#2E7D6B] font-bold flex items-center gap-3">
                                     <span className="text-lg">🎯</span> Goal Selection
                                 </button>

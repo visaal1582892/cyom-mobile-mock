@@ -115,9 +115,7 @@ const SavedPlansPage = () => {
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                         className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-md hover:border-white transition-all"
                     >
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
-                            IMG
-                        </div>
+                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
                     </button>
 
                     {/* Profile Dropdown */}
@@ -171,6 +169,9 @@ const SavedPlansPage = () => {
                                 </button>
                             </div>
                             <div className="space-y-2">
+                                <button onClick={() => { navigate('/cyom-dashboard'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
+                                    <span className="text-lg">📊</span> Dashboard
+                                </button>
                                 <button onClick={() => { navigate('/goal-selection'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
                                     <span className="text-lg">🎯</span> Goal Selection
                                 </button>
@@ -193,7 +194,7 @@ const SavedPlansPage = () => {
             )}
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto px-6 pb-10 space-y-4 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-6 pt-6 pb-10 space-y-4 custom-scrollbar">
                 {savedPlans.length === 0 ? (
                     <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 text-center mt-10">
                         <div className="text-4xl mb-3 opacity-50">📂</div>
