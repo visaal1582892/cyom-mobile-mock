@@ -9,7 +9,8 @@ import MealPlannerPage from './components/CYOM/MealPlannerPage';
 import SavedPlansPage from './components/CYOM/SavedPlansPage';
 import UserProfilePage from './components/CYOM/UserProfilePage';
 
-import CYOMDashboard from './components/CYOM/CYOMDashboard';
+import CYOMHomePage from './components/CYOM/CYOMHomePage';
+import DashboardPage from './components/CYOM/DashboardPage';
 import MealTrackerPage from './components/CYOM/MealTrackerPage';
 
 function App() {
@@ -26,7 +27,8 @@ function App() {
           <Route path="/saved-plans" element={<SavedPlansPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/dashboard" element={<WellnessTab />} />
-          <Route path="/cyom-dashboard" element={<CYOMDashboard />} />
+          <Route path="/cyom-home" element={<CYOMHomePage />} />
+          <Route path="/cyom-dashboard" element={<DashboardPage />} />
           <Route path="/meal-tracker" element={<MealTrackerPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

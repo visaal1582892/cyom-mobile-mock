@@ -134,8 +134,14 @@ const MealPlannerPage = () => {
     // Helpers
     const parseServingWeight = (item) => {
         if (item.composition && item.composition.length > 0) return item.composition.reduce((a, b) => a + (b.weight || 0), 0);
-        const match = item.servingSize?.match(/\((\d+)\s*(?:g|ml)\)/i);
-        return match ? parseInt(match[1]) : 100;
+
+        // Match MealTrackerPage Logic:
+        // 1. Explicit grams in parens or plain
+        const match = String(item.servingSize || "").match(/(\d+)\s*(?:g|ml)/i);
+        if (match) return parseInt(match[1]);
+
+        // 2. Fallback to 100g (Standard DB Reference)
+        return 100;
     };
 
     const isAllergic = (item) => {
@@ -1731,29 +1737,35 @@ const MealPlannerPage = () => {
                 </div>
             )}
             {/* Fixed Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 flex gap-3">
-                <div className="relative flex-1" ref={downloadRef}>
-                    <button onClick={() => setDownloadMenuOpen(!downloadMenuOpen)} className="w-full py-3 bg-gray-100 text-gray-700 font-black text-xs sm:text-sm rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
-                        <svg className="w-5 h-5 text-[#2E7D6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg>
-                        Download
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 flex gap-3 items-center">
+                <div className="relative" ref={downloadRef}>
+                    <button onClick={() => setDownloadMenuOpen(!downloadMenuOpen)} className="w-12 h-12 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center shadow-sm border border-gray-100">
+                        <svg className="w-6 h-6 text-[#2E7D6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg>
                     </button>
                     {downloadMenuOpen && (
-                        <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up-mobile">
-                            <button onClick={handleDownloadExcel} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 border-b border-gray-100 transition-all">
-                                <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center"><svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg></div>
-                                <div className="text-left"><div className="font-bold text-gray-800 text-sm">Excel Sheets</div><div className="text-[10px] text-gray-400 font-bold uppercase">Tracking & Analysis</div></div>
+                        <div className="absolute bottom-full left-0 w-56 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up-mobile z-50">
+                            <button onClick={handleDownloadExcel} className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 border-b border-gray-100 transition-all">
+                                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center shrink-0"><svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth={2} /></svg></div>
+                                <div className="text-left"><div className="font-bold text-gray-800 text-xs">Excel Export</div></div>
                             </button>
-                            <button onClick={handleDownloadPDF} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-all">
-                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center"><svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" strokeWidth={2} /></svg></div>
-                                <div className="text-left"><div className="font-bold text-gray-800 text-sm">PDF Document</div><div className="text-[10px] text-gray-400 font-bold uppercase">Print & Share</div></div>
+                            <button onClick={handleDownloadPDF} className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 transition-all">
+                                <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0"><svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" strokeWidth={2} /></svg></div>
+                                <div className="text-left"><div className="font-bold text-gray-800 text-xs">PDF Document</div></div>
                             </button>
                         </div>
                     )}
                 </div>
-                <button onClick={() => setSaveModalOpen(true)} className="flex-1 py-3 bg-[#2E7D6B] text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" strokeWidth={2} /></svg>
-                    Save Plan
-                </button>
+
+                <div className="flex-1 flex gap-2">
+                    <button onClick={() => setSaveModalOpen(true)} className="flex-1 py-3 bg-[#2E7D6B] text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-[#2E7D6B]/30 hover:bg-[#256a5b] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" strokeWidth={2} /></svg>
+                        Save Plan
+                    </button>
+                    <button onClick={() => navigate('/meal-tracker')} className="flex-1 py-3 bg-[#FFD166] text-amber-900 font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-[#FFD166]/30 hover:bg-[#ffc640] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                        Track
+                    </button>
+                </div>
             </div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>

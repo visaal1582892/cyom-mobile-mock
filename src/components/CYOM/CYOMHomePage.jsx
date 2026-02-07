@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
+import SidebarMenu from './SidebarMenu';
 
-const CYOMDashboard = () => {
+const CYOMHomePage = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -12,6 +13,13 @@ const CYOMDashboard = () => {
     };
 
     const options = [
+        {
+            title: "Dashboard",
+            path: "/cyom-dashboard",
+            iconEmoji: "📊",
+            colorClass: "bg-purple-50 text-purple-500",
+            hoverClass: "group-hover:text-purple-600"
+        },
         {
             title: "Create New Plan",
             path: "/goal-selection",
@@ -101,44 +109,13 @@ const CYOMDashboard = () => {
             </div>
 
             {/* Sidebar Menu */}
-            {isMenuOpen && (
-                <div className="fixed inset-0 z-50 flex text-[#1F2933]">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
-                    <div className="relative w-3/4 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between animate-slide-in-left">
-                        <div>
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-2xl font-bold text-[#1F2933]">Menu</h2>
-                                <button onClick={() => setIsMenuOpen(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="space-y-2">
-                                <button onClick={() => { navigate('/cyom-dashboard'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">📊</span> Dashboard
-                                </button>
-                                <button onClick={() => { navigate('/goal-selection'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl bg-[#F0FDF9] text-[#2E7D6B] font-bold flex items-center gap-3">
-                                    <span className="text-lg">🎯</span> Goal Selection
-                                </button>
-                                <button onClick={() => { navigate('/saved-plans'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">📂</span> Saved Plans
-                                </button>
-                                <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">🏠</span> Back to Home
-                                </button>
-                            </div>
-                        </div>
-                        <div className="text-center text-xs text-gray-400">v1.0.0 CYOM Beta</div>
-                    </div>
-                </div>
-            )}
+            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
                 <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[40px] shadow-2xl">
                     <div className="text-center mb-8 text-white">
-                        <h2 className="text-2xl font-bold mb-1">What would you like to do?</h2>
+                        <h2 className="text-2xl font-bold mb-1">Home</h2>
                         <p className="opacity-80 text-sm">Select an option to proceed</p>
                     </div>
 
@@ -157,7 +134,7 @@ const CYOMDashboard = () => {
                                 </div>
                                 <div className="p-2 bg-[#2E7D6B]/10 rounded-full text-[#2E7D6B] transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
                                     </svg>
                                 </div>
                             </button>
@@ -171,4 +148,4 @@ const CYOMDashboard = () => {
     );
 };
 
-export default CYOMDashboard;
+export default CYOMHomePage;

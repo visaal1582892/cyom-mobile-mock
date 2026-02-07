@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
+import SidebarMenu from './SidebarMenu';
 
 const SavedPlansPage = () => {
     const navigate = useNavigate();
@@ -154,44 +155,8 @@ const SavedPlansPage = () => {
                 </div>
             </div>
 
-            {/* Sidebar Menu (Drawer) */}
-            {isMenuOpen && (
-                <div className="fixed inset-0 z-50 flex">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
-                    <div className="relative w-3/4 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between animate-slide-in-left">
-                        <div>
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-2xl font-bold text-[#1F2933]">Menu</h2>
-                                <button onClick={() => setIsMenuOpen(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="space-y-2">
-                                <button onClick={() => { navigate('/cyom-dashboard'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">📊</span> Dashboard
-                                </button>
-                                <button onClick={() => { navigate('/goal-selection'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">🎯</span> Goal Selection
-                                </button>
-                                <button onClick={() => { navigate('/saved-plans'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl bg-[#F0FDF9] text-[#2E7D6B] font-bold flex items-center gap-3">
-                                    <span className="text-lg">📂</span> Saved Plans
-                                </button>
-                                <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">🏠</span> Back to Home
-                                </button>
-                                <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3 opacity-50 cursor-not-allowed">
-                                    <span className="text-lg">⚙️</span> Settings (Soon)
-                                </button>
-                            </div>
-                        </div>
-                        <div className="text-center text-xs text-gray-400">
-                            v1.0.0 CYOM Beta
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Sidebar Menu */}
+            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* List */}
             <div className="flex-1 overflow-y-auto px-6 pt-6 pb-10 space-y-4 custom-scrollbar">
