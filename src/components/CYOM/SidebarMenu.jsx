@@ -32,14 +32,14 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                         <button onClick={() => { navigate('/cyom-dashboard'); onClose(); }} className={getButtonClass('/cyom-dashboard')}>
                             <span className="text-lg">📊</span> Dashboard
                         </button>
+                        <button onClick={() => { navigate('/meal-history'); onClose(); }} className={getButtonClass('/meal-history')}>
+                            <span className="text-lg">📜</span> Meal History
+                        </button>
                         <button onClick={() => { navigate('/goal-selection'); onClose(); }} className={getButtonClass('/goal-selection')}>
                             <span className="text-lg">🎯</span> Goal Selection
                         </button>
                         <button onClick={() => { navigate('/saved-plans'); onClose(); }} className={getButtonClass('/saved-plans')}>
                             <span className="text-lg">📂</span> Saved Plans
-                        </button>
-                        <button onClick={() => { navigate('/'); onClose(); }} className={getButtonClass('/')}>
-                            <span className="text-lg">🏥</span> Back to MedPlus Home
                         </button>
                     </div>
                 </div>

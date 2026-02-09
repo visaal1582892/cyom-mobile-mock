@@ -48,27 +48,18 @@ const UserProfilePage = () => {
     );
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
-
-            {/* Background Decor */}
-            <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
-
-            {/* Header / Status Bar Area */}
-            <div className="pt-6 px-6 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    {/* Hamburger Menu */}
-                    <button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    <div className="text-xl font-bold">My Profile</div>
-                </div>
-
-                {/* Back Button */}
-                <button onClick={() => navigate(-1)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur-md transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
+            {/* --- STICKY HEADER --- */}
+            <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30 flex justify-between items-center px-4 py-3">
+                <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                    </svg>
+                </button>
+                <div className="text-lg font-bold text-gray-800">My Profile</div>
+                <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
@@ -77,33 +68,32 @@ const UserProfilePage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4 pt-6">
-                <div className="w-full max-w-2xl mx-auto mt-4">
+            <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4 pt-4">
+                <div className="w-full max-w-2xl mx-auto space-y-4">
 
                     {/* Profile Header Card */}
-                    <div className="bg-white/95 backdrop-blur-xl p-6 rounded-[32px] shadow-2xl border border-white/50 text-[#1F2933] relative overflow-hidden mb-6">
-                        <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-r from-[#2E7D6B]/20 to-[#A8E6CF]/20"></div>
-
-                        <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden mb-4">
-                                <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-r from-[#2E7D6B]/10 to-[#A8E6CF]/10"></div>
+                        <div className="relative z-10">
+                            <div className="w-20 h-20 mx-auto rounded-full p-1 bg-white shadow-md mb-3">
+                                <img src={userData.image} alt="Profile" className="w-full h-full rounded-full object-cover" />
                             </div>
                             {isEditing ? (
                                 <input
                                     name="name"
                                     value={profile.name}
                                     onChange={handleChange}
-                                    className="text-2xl font-bold text-center bg-gray-50 border-b-2 border-[#2E7D6B] outline-none"
+                                    className="text-xl font-bold text-center bg-gray-50 border-b-2 border-[#2E7D6B] outline-none w-full max-w-[200px]"
                                 />
                             ) : (
-                                <h2 className="text-2xl font-bold">{profile.name}</h2>
+                                <h2 className="text-xl font-bold text-gray-800">{profile.name}</h2>
                             )}
-                            <div className="text-xs font-bold text-[#2E7D6B] uppercase tracking-widest mt-1 bg-[#2E7D6B]/10 px-3 py-1 rounded-full">Premium Member</div>
+                            <div className="text-[10px] font-black text-[#2E7D6B] uppercase tracking-widest mt-1 bg-[#2E7D6B]/5 px-3 py-1 rounded-full inline-block">Premium Member</div>
                         </div>
                     </div>
 
                     {/* Details Form */}
-                    <div className="bg-white/95 backdrop-blur-xl p-6 md:p-8 rounded-[32px] shadow-2xl border border-white/50 space-y-6 text-[#1F2933]">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
 
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Personal Details</h3>
@@ -149,17 +139,20 @@ const UserProfilePage = () => {
                             </select>
                         </div>
 
-                        {/* Danger Zone */}
-                        {!isEditing && (
-                            <div className="pt-6 border-t border-gray-100 mt-6">
+                        {/* Links/Actions */}
+                        <div className="pt-6 border-t border-gray-100 mt-6 space-y-3">
+                            <button onClick={() => navigate('/meal-history')} className="w-full py-4 rounded-2xl border-2 border-[#2E7D6B]/10 text-[#2E7D6B] font-bold hover:bg-[#2E7D6B]/5 transition-colors flex items-center justify-center gap-2">
+                                <span className="text-xl">📜</span> View Meal History
+                            </button>
+                            {!isEditing && (
                                 <button onClick={handleLogout} className="w-full py-4 rounded-2xl border-2 border-red-50 text-red-500 font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                     </svg>
                                     Logout
                                 </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                     </div>
                 </div>

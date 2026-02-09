@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { userData } from '../../data/store';
 import SidebarMenu from './SidebarMenu';
 import { foodDatabase } from '../../data/foodDatabase';
@@ -12,6 +12,7 @@ const MealTrackerPage = () => {
     const [savedPlans, setSavedPlans] = useState([]);
     const [selectedPlanId, setSelectedPlanId] = useState(null);
     const [activeDay, setActiveDay] = useState(1);
+    const location = useLocation();
 
     // TABS
     const [activeTab, setActiveTab] = useState('input'); // 'input' | 'insights'
@@ -40,31 +41,96 @@ const MealTrackerPage = () => {
     const [inputWeight, setInputWeight] = useState(''); // Default empty, user types value
     const [selectedFoodItem, setSelectedFoodItem] = useState(null); // Item selected from autocomplete
     const [capturedImages, setCapturedImages] = useState({}); // { [planId_day_slot]: 'data:image/...' }
+    const [historySnapshot, setHistorySnapshot] = useState(null); // { breakfast: [], lunch: [], ... }
 
     // --- INITIAL LOAD ---
     useEffect(() => {
-        const plans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
-        const logs = JSON.parse(localStorage.getItem('cyom_tracking_logs') || '{}');
-        const extras = JSON.parse(localStorage.getItem('cyom_extra_tracking_items') || '{}');
-        const removed = JSON.parse(localStorage.getItem('cyom_removed_items') || '{}');
+        const queryParams = new URLSearchParams(location.search);
+        const historyDate = queryParams.get('date');
+        const dayParam = queryParams.get('day');
 
+        const today = new Date().toISOString().split('T')[0];
+
+        // Initial defaults
+        let logs = {};
+        let extras = {};
+        let removed = {};
+        let images = {};
+
+        const plans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
         setSavedPlans(plans);
+
+        if (historyDate) {
+            // Loading from HISTORY - use the stored selected log
+            const selectedLogStr = localStorage.getItem('cyom_selected_history_log');
+            if (selectedLogStr) {
+                try {
+                    const historyLog = JSON.parse(selectedLogStr);
+                    if (historyLog) {
+                        if (historyLog.details) {
+                            logs = historyLog.details.trackingLogs || {};
+                            extras = historyLog.details.extraLogs || {};
+                            removed = historyLog.details.removedLogs || {};
+                            images = historyLog.details.capturedImages || {};
+                        }
+                        // Priority: Use the planId from the history log
+                        if (historyLog.planId) {
+                            localStorage.setItem('cyom_tracker_active_plan_id', String(historyLog.planId));
+                        }
+                        // Priority for Day: URL Param -> History Log -> Default 1
+                        const targetDay = dayParam || historyLog.day || 1;
+                        setActiveDay(parseInt(targetDay, 10));
+                    }
+                } catch (e) {
+                    console.error('Error parsing selected history log', e);
+                }
+            }
+        } else {
+            if (dayParam) setActiveDay(parseInt(dayParam, 10));
+
+            // NORMAL ENTRY - Clear and start fresh for TODAY as requested
+            const lastTrackedDate = localStorage.getItem('cyom_last_tracked_date');
+            if (lastTrackedDate !== today) {
+                localStorage.removeItem('cyom_tracking_logs');
+                localStorage.removeItem('cyom_extra_tracking_items');
+                localStorage.removeItem('cyom_removed_items');
+                localStorage.removeItem('cyom_captured_plates');
+                localStorage.setItem('cyom_last_tracked_date', today);
+            } else {
+                logs = JSON.parse(localStorage.getItem('cyom_tracking_logs') || '{}');
+                extras = JSON.parse(localStorage.getItem('cyom_extra_tracking_items') || '{}');
+                removed = JSON.parse(localStorage.getItem('cyom_removed_items') || '{}');
+                images = JSON.parse(localStorage.getItem('cyom_captured_plates') || '{}');
+            }
+        }
+
         setTrackingLogs(logs);
         setExtraLogs(extras);
-        setExtraLogs(extras);
         setRemovedLogs(removed);
-
-        const images = JSON.parse(localStorage.getItem('cyom_captured_plates') || '{}');
         setCapturedImages(images);
 
+        if (historyDate) {
+            const selectedLogStr = localStorage.getItem('cyom_selected_history_log');
+            if (selectedLogStr) {
+                const historyLog = JSON.parse(selectedLogStr);
+                if (historyLog?.details?.planSnapshot) {
+                    setHistorySnapshot(historyLog.details.planSnapshot);
+                }
+            }
+        } else {
+            setHistorySnapshot(null);
+        }
+
+        // Find and set active plan (CRITICAL for "seeing the meal")
         if (plans.length > 0) {
             const savedId = localStorage.getItem('cyom_tracker_active_plan_id');
-            // ID is number, localStorage is string. Compare as strings.
             const targetPlan = plans.find(p => String(p.id) === String(savedId)) || plans[0];
             setSelectedPlanId(targetPlan.id);
         }
+
         setLoading(false);
-    }, []);
+    }, [location.search]); // Re-run if query params change
+
 
     // --- SEARCH HELPERS ---
     useEffect(() => {
@@ -332,9 +398,9 @@ const MealTrackerPage = () => {
 
     const calculateStats = () => {
         const plan = getActivePlan();
-        if (!plan) return null;
+        if (!plan && !historySnapshot) return null;
 
-        const dayPlan = plan.plan[activeDay] || {};
+        const dayPlan = historySnapshot || plan?.plan?.[activeDay] || {};
         const slots = ['breakfast', 'morningSnack', 'lunch', 'snacks', 'dinner'];
 
         let stats = {
@@ -427,6 +493,76 @@ const MealTrackerPage = () => {
         });
 
         return stats;
+        return stats;
+    };
+
+    // --- PERSISTENCE: Save to Daily Logs ---
+    useEffect(() => {
+        if (loading || !selectedPlanId) return;
+
+        const queryParams = new URLSearchParams(location.search);
+        const historyDate = queryParams.get('date');
+        // ALLOW auto-save for history, but handle target properly
+
+        const performSave = () => {
+            const currentStats = calculateStats();
+            if (!currentStats) return;
+
+            // Target Date: History Date OR Today
+            const targetDate = historyDate || new Date().toISOString().split('T')[0];
+            const allLogs = JSON.parse(localStorage.getItem('cyom_daily_logs') || '{}');
+
+            // Construct the log entry (Preserve existing structure if needed, but here we overwrite mostly)
+            const logEntry = {
+                date: targetDate,
+                planId: selectedPlanId,
+                day: activeDay,
+                lastUpdated: new Date().toISOString(),
+                calories: {
+                    consumed: Math.round(currentStats.calories.consumed),
+                    total: Math.round(currentStats.calories.total)
+                },
+                macros: {
+                    carbs: { consumed: Math.round(currentStats.macros.carbs.consumed), total: Math.round(currentStats.macros.carbs.total) },
+                    protein: { consumed: Math.round(currentStats.macros.protein.consumed), total: Math.round(currentStats.macros.protein.total) },
+                    fats: { consumed: Math.round(currentStats.macros.fats.consumed), total: Math.round(currentStats.macros.fats.total) }
+                },
+                micros: currentStats.vitamins && currentStats.minerals ? {
+                    vitamins: Object.fromEntries(Object.entries(currentStats.vitamins).map(([k, v]) => [k, { consumed: v.consumed, total: v.total }])),
+                    minerals: Object.fromEntries(Object.entries(currentStats.minerals).map(([k, v]) => [k, { consumed: v.consumed, total: v.total }]))
+                } : {},
+                details: {
+                    trackingLogs,
+                    extraLogs,
+                    removedLogs,
+                    capturedImages,
+                    planSnapshot: getActivePlan()?.plan?.[activeDay] || {}
+                }
+            };
+
+            // Save to the master log for the specific date
+            allLogs[targetDate] = logEntry;
+            localStorage.setItem('cyom_daily_logs', JSON.stringify(allLogs));
+
+            // ONLY save to the individual keys for "today's work in progress" if it IS today (not history)
+            if (!historyDate) {
+                localStorage.setItem('cyom_tracking_logs', JSON.stringify(trackingLogs));
+                localStorage.setItem('cyom_extra_tracking_items', JSON.stringify(extraLogs));
+                localStorage.setItem('cyom_removed_items', JSON.stringify(removedLogs));
+                localStorage.setItem('cyom_captured_plates', JSON.stringify(capturedImages));
+            }
+        };
+
+        // Auto-save on changes
+        performSave();
+
+    }, [trackingLogs, extraLogs, removedLogs, selectedPlanId, activeDay]); // Dependencies that affect calculations
+
+    // --- Manual Save for User Feedback ---
+    const handleManualSave = () => {
+        // Trigger the save logic (it runs on effect, but this gives feedback)
+        // In a real app, this might commit to a backend
+        alert("Daily Log Saved Successfully! 📝");
     };
 
     const stats = calculateStats();
@@ -438,7 +574,7 @@ const MealTrackerPage = () => {
         percent: Math.min(100, Math.round((stats.calories.consumed / (stats.calories.total || 1)) * 100))
     } : { val: 0, total: 1, percent: 0 };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center text-[#2E7D6B] font-bold">Loading Tracker...</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading Tracker...</div>;
 
     if (savedPlans.length === 0) {
         return (
@@ -456,108 +592,102 @@ const MealTrackerPage = () => {
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
+        <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-[#1F2933]">
+            {/* --- STICKY HEADER --- */}
+            <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
+                {/* Top Row: Menu + Profile + Stats */}
+                <div className="px-3 py-2 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                        </button>
+                    </div>
 
-            {/* Background Decor */}
-            <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
+                    {/* Compact Stats Summary */}
+                    <div className="flex items-center gap-4 sm:gap-6 flex-1 justify-end">
+                        {/* Calories */}
+                        <div className="text-right">
+                            <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Energy</div>
+                            <div className="text-sm font-black text-[#2E7D6B] leading-none">
+                                {Math.round(stats.calories.consumed)} <span className="text-gray-300 text-xs">/ {Math.round(stats.calories.total)}</span>
+                            </div>
+                        </div>
 
-            <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
-
-            {/* Header / Status Bar Area */}
-            <div className="pt-6 px-6 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    <div>
-                        <div className="text-xs opacity-80 font-medium text-green-100">Welcome</div>
-                        <div className="flex items-center gap-2">
-                            <div className="text-lg font-bold">{userData.name}! </div>
+                        {/* Macros */}
+                        <div className="flex gap-3 sm:gap-6 border-l border-gray-100 pl-3 sm:pl-6">
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Prot</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={stats.macros.protein.consumed > stats.macros.protein.total ? 'text-red-500' : ''}>{Math.round(stats.macros.protein.consumed)}</span>
+                                    <span className="text-gray-300 font-medium text-xs">/{Math.round(stats.macros.protein.total)}</span>
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Carb</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={stats.macros.carbs.consumed > stats.macros.carbs.total ? 'text-red-500' : ''}>{Math.round(stats.macros.carbs.consumed)}</span>
+                                    <span className="text-gray-300 font-medium text-xs">/{Math.round(stats.macros.carbs.total)}</span>
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Fat</div>
+                                <div className="text-sm font-bold text-gray-700 leading-none">
+                                    <span className={stats.macros.fats.consumed > stats.macros.fats.total ? 'text-red-500' : ''}>{Math.round(stats.macros.fats.consumed)}</span>
+                                    <span className="text-gray-300 font-medium text-xs">/{Math.round(stats.macros.fats.total)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="relative">
-                    <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-md hover:border-white transition-all"
-                    >
-                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
-                    </button>
+                {/* Bottom Row: Controls (Days & Tabs) */}
+                <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={activeDay}
+                            onChange={(e) => setActiveDay(Number(e.target.value))}
+                            className="bg-white border border-gray-200 text-gray-700 text-xs font-bold py-1.5 px-3 rounded-lg outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B] shadow-sm cursor-pointer"
+                        >
+                            {Array.from({ length: currentPlan?.duration || 1 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={d}>Day {d}</option>
+                            ))}
+                        </select>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:block">Viewing Day {activeDay} Tracker</span>
+                    </div>
 
-                    {isProfileOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
-                            <div className="absolute right-0 top-14 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 py-2 z-20 animate-fade-in-up text-gray-800">
-                                <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                                    <div className="font-bold text-sm truncate">{userData.name}</div>
-                                    <div className="text-xs text-gray-500">Premium Member</div>
-                                </div>
-                                <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                    My Profile
-                                </button>
-                                <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                    </svg>
-                                    Saved Plans
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-left px-4 py-2 hover:bg-red-50 hover:text-red-500 text-sm font-medium transition-colors flex items-center gap-2 text-red-500"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    Logout
-                                </button>
-                            </div>
-                        </>
-                    )}
+                    {/* Segmented Tabs */}
+                    <div className="flex bg-gray-200/50 p-0.5 rounded-lg">
+                        <button
+                            onClick={() => setActiveTab('input')}
+                            className={`px-3 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'input' ? 'bg-white text-[#2E7D6B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Input Meals
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('insights')}
+                            className={`px-3 py-1 rounded-md text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'insights' ? 'bg-white text-[#2E7D6B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Insights
+                        </button>
+                    </div>
                 </div>
             </div>
+
             {/* Sidebar Menu */}
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4">
+            <div className="flex-1 overflow-y-auto pb-32 custom-scrollbar px-4 relative z-0">
                 <div className="w-full max-w-2xl mx-auto mt-4">
-                    <div className="mb-6 ml-2 text-white flex justify-between items-end">
-                        <div>
-                            <h1 className="text-xl font-bold">Today's Intake</h1>
-                            <p className="text-xs opacity-80">Track your calories and nutrient goals</p>
-                        </div>
-                        {/* MAIN TABS */}
-                        <div className="flex bg-white/20 backdrop-blur-md rounded-xl p-1 gap-1">
-                            <button
-                                onClick={() => setActiveTab('input')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'input' ? 'bg-white text-[#2E7D6B] shadow-sm' : 'text-white hover:bg-white/10'}`}
-                            >
-                                Input Meals
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('insights')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'insights' ? 'bg-white text-[#2E7D6B] shadow-sm' : 'text-white hover:bg-white/10'}`}
-                            >
-                                Insights
-                            </button>
-                        </div>
-                    </div>
 
                     {activeTab === 'input' && (
                         <div className="mt-4 bg-white/94 backdrop-blur-xl p-4 sm:p-6 rounded-[28px] shadow-2xl border border-white/50 text-[#1F2933] animate-fade-in-up">
                             {/* --- WHITE CARD CONTENT (Old Header Parts + Tracker) --- */}
 
                             <div className="flex items-center justify-between mb-4">
-                                <button onClick={() => navigate('/cyom-home')} className="p-2 -ml-2 text-gray-400 hover:text-gray-600 flex items-center gap-1">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                                    <span className="text-xs font-bold">Home</span>
-                                </button>
+                                <div></div>
                                 {/* Plan Selector */}
                                 {/* Plan Selector (Searchable Dropdown) */}
                                 <div className="relative z-30">
@@ -633,24 +763,10 @@ const MealTrackerPage = () => {
                                 </div>
                             )}
 
-                            {/* --- PROGRESS BAR --- */}
-                            <div className="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-100 mb-8">
-                                <div className="flex justify-between items-end mb-2">
-                                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Calories</div>
-                                    <div className="text-xl font-black text-[#2E7D6B]">{progress.val}<span className="text-sm font-bold text-gray-300"> / {progress.total}</span></div>
-                                </div>
-                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-[#2E7D6B] to-[#43AA95] transition-all duration-500 rounded-full"
-                                        style={{ width: `${progress.percent}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-
                             {/* --- CHECKLIST --- */}
                             <div className="space-y-8">
                                 {['breakfast', 'morningSnack', 'lunch', 'snacks', 'dinner'].map(slot => {
-                                    const planItems = currentPlan?.plan?.[activeDay]?.[slot] || [];
+                                    const planItems = historySnapshot ? (historySnapshot[slot] || []) : (currentPlan?.plan?.[activeDay]?.[slot] || []);
                                     const extraItems = extraLogs[`${selectedPlanId}_${activeDay}_${slot}`] || [];
                                     const visiblePlanItems = planItems.filter(item => !isRemoved(slot, item.uuid));
                                     const allItems = [...visiblePlanItems, ...extraItems];
@@ -664,7 +780,7 @@ const MealTrackerPage = () => {
                                                         {slot.replace(/([A-Z])/g, ' $1').trim()}
                                                     </h3>
                                                     {/* PER SLOT CALORIES */}
-                                                    <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                                                    <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 whitespace-nowrap">
                                                         {(() => {
                                                             // Target: Sum of ALL plan items (even if removed from view)
                                                             const targetCals = planItems.reduce((sum, i) => sum + (i.calculatedCalories || 0), 0);
@@ -678,7 +794,7 @@ const MealTrackerPage = () => {
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => triggerFileInput(slot)}
-                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-[#2E7D6B] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B] hover:text-white"
+                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-[#2E7D6B] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B] hover:text-white whitespace-nowrap"
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -697,7 +813,7 @@ const MealTrackerPage = () => {
 
                                                     <button
                                                         onClick={() => handleOpenInlineInput(slot)}
-                                                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${activeSearchSlot === slot ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'text-[#2E7D6B] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B] hover:text-white'}`}
+                                                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${activeSearchSlot === slot ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'text-[#2E7D6B] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B] hover:text-white'}`}
                                                     >
                                                         {activeSearchSlot === slot ? (
                                                             <>
@@ -996,6 +1112,18 @@ const MealTrackerPage = () => {
                             )}
                         </div>
                     )}
+                    {/* STICKY FOOTER FOR SAVE BUTTON */}
+                    <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 pb-8 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+                        <button
+                            onClick={handleManualSave}
+                            className="w-full bg-[#2E7D6B] text-white font-bold text-lg py-4 rounded-2xl shadow-lg hover:bg-[#256a5b] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                            </svg>
+                            Save Daily Log
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

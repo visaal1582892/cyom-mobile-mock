@@ -12,6 +12,7 @@ import UserProfilePage from './components/CYOM/UserProfilePage';
 import CYOMHomePage from './components/CYOM/CYOMHomePage';
 import DashboardPage from './components/CYOM/DashboardPage';
 import MealTrackerPage from './components/CYOM/MealTrackerPage';
+import MealHistoryPage from './components/CYOM/MealHistoryPage';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/cyom-home" element={<CYOMHomePage />} />
           <Route path="/cyom-dashboard" element={<DashboardPage />} />
           <Route path="/meal-tracker" element={<MealTrackerPage />} />
+          <Route path="/meal-history" element={<MealHistoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

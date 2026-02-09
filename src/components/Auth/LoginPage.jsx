@@ -38,7 +38,7 @@ const LoginPage = () => {
         setTimeout(() => {
             const savedPlans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
             if (savedPlans.length > 0) {
-                navigate('/cyom-dashboard');
+                navigate('/cyom-home');
             } else {
                 navigate('/goal-selection');
             }

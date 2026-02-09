@@ -102,9 +102,6 @@ const WellnessTab = () => {
                                 <button onClick={() => { navigate('/saved-plans'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
                                     <span className="text-lg">📂</span> Saved Plans
                                 </button>
-                                <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3">
-                                    <span className="text-lg">🏠</span> Back to Home
-                                </button>
                                 <button className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-medium flex items-center gap-3 opacity-50 cursor-not-allowed">
                                     <span className="text-lg">⚙️</span> Settings (Soon)
                                 </button>
