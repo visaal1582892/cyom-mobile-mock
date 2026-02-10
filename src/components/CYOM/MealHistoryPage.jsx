@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import SidebarMenu from './SidebarMenu';
 
+import CommonProfileMenu from './CommonProfileMenu';
+
 const MealHistoryPage = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [historyLogs, setHistoryLogs] = useState([]);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -222,25 +223,7 @@ const MealHistoryPage = () => {
                         </div>
                     </div>
 
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsProfileOpen(!isProfileOpen)}
-                            className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 transition-transform"
-                        >
-                            <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
-                        </button>
-                        {isProfileOpen && (
-                            <>
-                                <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)}></div>
-                                <div className="absolute right-0 top-11 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-20 animate-fade-in-up text-gray-800">
-                                    <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2 hover:bg-[#F0FDF9] hover:text-[#2E7D6B] text-sm font-bold transition-colors">My Profile</button>
-                                    <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-2 hover:bg-[#F0FDF9] hover:text-[#2E7D6B] text-sm font-bold transition-colors">Saved Plans</button>
-                                    <div className="h-px bg-gray-100 my-1"></div>
-                                    <button onClick={() => navigate('/login')} className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-500 text-sm font-bold transition-colors">Logout</button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <CommonProfileMenu />
                 </div>
             </div>
 

@@ -61,10 +61,10 @@ const CYOMHomePage = () => {
             iconBg: "bg-teal-100 text-[#2E7D6B]",
         },
         {
-            title: "Create Plan",
-            description: "Design a new meal plan",
-            path: "/goal-selection",
-            iconEmoji: "📝",
+            title: "Meal History",
+            description: "View past logs",
+            path: "/meal-history",
+            iconEmoji: "📜",
             iconBg: "bg-orange-100 text-orange-600",
         },
         {
@@ -147,39 +147,32 @@ const CYOMHomePage = () => {
             <div className="flex-1 flex flex-col p-6 relative z-10 max-w-4xl mx-auto w-full">
 
                 {/* HERO CARD - White Background for Visibility */}
-                <div className="bg-white/95 backdrop-blur-md border border-white/60 p-6 sm:p-8 rounded-[32px] shadow-xl mb-8 relative overflow-hidden group">
-                    {/* Decorative BG */}
-                    <div className="absolute right-0 top-0 w-64 h-64 bg-gradient-to-br from-[#2E7D6B]/5 to-transparent rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                {/* HERO CARD - Create Plan Focused */}
+                <div
+                    onClick={() => navigate('/goal-selection')}
+                    className="bg-white p-6 sm:p-8 rounded-[32px] shadow-xl mb-8 relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
+                >
+                    {/* Decorative Icons - Visible & Vibrant */}
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-8xl drop-shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">📝</div>
+                    <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[#2E7D6B]/10 rounded-full blur-2xl group-hover:bg-[#2E7D6B]/20 transition-colors"></div>
 
-                    <div className="relative z-10">
-                        <h1 className="text-3xl sm:text-4xl font-black text-gray-800 mb-2 tracking-tight">
-                            Build Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2E7D6B] to-[#43AA95]">Body</span>
+                    <div className="relative z-10 flex flex-col items-start max-w-[70%]">
+                        <div className="bg-[#2E7D6B]/10 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-[#2E7D6B] mb-3 uppercase tracking-wider">
+                            Start Here
+                        </div>
+                        <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-2 tracking-tight leading-none">
+                            Create New Plan
                         </h1>
-                        <p className="text-gray-500 font-medium mb-6 max-w-md">
-                            Your personalized nutrition journey starts here. Track meals, analyze insights, and reach your goals.
+                        <p className="text-gray-500 font-medium mb-3 max-w-md text-sm sm:text-base">
+                            Design a personalized nutrition plan tailored to your goals.
                         </p>
 
-                        {progressInfo.hasPlan ? (
-                            <div className="flex flex-wrap items-center gap-3">
-                                <div className="inline-flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl shadow-inner border border-gray-100">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2E7D6B] opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#2E7D6B]"></span>
-                                    </span>
-                                    <span className="text-sm font-bold text-gray-700">Active Plan: <span className="text-[#2E7D6B]">{progressInfo.planName}</span></span>
-                                </div>
-                                <button
-                                    onClick={() => setIsPlanModalOpen(true)}
-                                    className="text-xs font-bold text-[#2E7D6B] hover:text-[#256a5b] hover:underline px-2 py-1"
-                                >
-                                    Change
-                                </button>
-                            </div>
-                        ) : (
-                            <button onClick={() => navigate('/goal-selection')} className="px-6 py-2.5 bg-[#2E7D6B] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:bg-[#256a5b] transition-all transform hover:-translate-y-0.5">
-                                Start a New Plan
-                            </button>
-                        )}
+                        <button className="px-6 py-3 bg-[#2E7D6B] text-white font-black rounded-xl shadow-lg shadow-[#2E7D6B]/20 flex items-center gap-2 group-hover:gap-3 transition-all hover:bg-[#256a5b]">
+                            Let's Begin
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 

@@ -5,6 +5,8 @@ import SidebarMenu from './SidebarMenu';
 import { foodDatabase } from '../../data/foodDatabase';
 import { getExtendedNutrients, RDA_TARGETS } from '../../utils/nutrientData';
 
+import CommonProfileMenu from './CommonProfileMenu';
+
 const MealTrackerPage = () => {
     const navigate = useNavigate();
 
@@ -31,7 +33,6 @@ const MealTrackerPage = () => {
 
     // UI State for Theme
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Search Logic
     const [isSearchOpen, setIsSearchOpen] = useState(false); // Kept for logic, but might not use modal anymore
@@ -88,19 +89,44 @@ const MealTrackerPage = () => {
         } else {
             if (dayParam) setActiveDay(parseInt(dayParam, 10));
 
-            // NORMAL ENTRY - Clear and start fresh for TODAY as requested
-            const lastTrackedDate = localStorage.getItem('cyom_last_tracked_date');
-            if (lastTrackedDate !== today) {
-                localStorage.removeItem('cyom_tracking_logs');
-                localStorage.removeItem('cyom_extra_tracking_items');
-                localStorage.removeItem('cyom_removed_items');
-                localStorage.removeItem('cyom_captured_plates');
-                localStorage.setItem('cyom_last_tracked_date', today);
+            // NORMAL ENTRY
+            const today = new Date().toISOString().split('T')[0];
+            const allLogs = JSON.parse(localStorage.getItem('cyom_daily_logs') || '{}');
+
+            if (allLogs[today]) {
+                // LOAD FROM SAVED HISTORY (Single Source of Truth)
+                const todayLog = allLogs[today];
+                if (todayLog.details) {
+                    logs = todayLog.details.trackingLogs || {};
+                    extras = todayLog.details.extraLogs || {};
+                    removed = todayLog.details.removedLogs || {};
+                    images = todayLog.details.capturedImages || {};
+                }
+                if (todayLog.planId) {
+                    localStorage.setItem('cyom_tracker_active_plan_id', String(todayLog.planId));
+                }
+                if (todayLog.day) {
+                    // Update activeDay state immediately (will be handled by effect, but good to be explicit for logic flow)
+                    // Note: setActiveDay is called below based on logic, but we can preset the logic var
+                    // actually setActiveDay is a state setter, so we call it.
+                    const savedDay = parseInt(todayLog.day, 10);
+                    if (!dayParam) setActiveDay(savedDay);
+                }
             } else {
-                logs = JSON.parse(localStorage.getItem('cyom_tracking_logs') || '{}');
-                extras = JSON.parse(localStorage.getItem('cyom_extra_tracking_items') || '{}');
-                removed = JSON.parse(localStorage.getItem('cyom_removed_items') || '{}');
-                images = JSON.parse(localStorage.getItem('cyom_captured_plates') || '{}');
+                // NO SAVED LOG FOR TODAY -> Check working copy or start fresh
+                const lastTrackedDate = localStorage.getItem('cyom_last_tracked_date');
+                if (lastTrackedDate !== today) {
+                    localStorage.removeItem('cyom_tracking_logs');
+                    localStorage.removeItem('cyom_extra_tracking_items');
+                    localStorage.removeItem('cyom_removed_items');
+                    localStorage.removeItem('cyom_captured_plates');
+                    localStorage.setItem('cyom_last_tracked_date', today);
+                } else {
+                    logs = JSON.parse(localStorage.getItem('cyom_tracking_logs') || '{}');
+                    extras = JSON.parse(localStorage.getItem('cyom_extra_tracking_items') || '{}');
+                    removed = JSON.parse(localStorage.getItem('cyom_removed_items') || '{}');
+                    images = JSON.parse(localStorage.getItem('cyom_captured_plates') || '{}');
+                }
             }
         }
 
@@ -334,9 +360,7 @@ const MealTrackerPage = () => {
         }
     };
 
-    const handleLogout = () => {
-        navigate('/login');
-    };
+
 
     // --- PHOTO CAPTURE ---
     const handleImageUpload = (event, slot) => {
@@ -644,17 +668,59 @@ const MealTrackerPage = () => {
 
                 {/* Bottom Row: Controls (Days & Tabs) */}
                 <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-t border-gray-100">
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={activeDay}
-                            onChange={(e) => setActiveDay(Number(e.target.value))}
-                            className="bg-white border border-gray-200 text-gray-700 text-xs font-bold py-1.5 px-3 rounded-lg outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B] shadow-sm cursor-pointer"
+                    <div className="relative">
+                        <button
+                            onClick={() => setPlanSelectorOpen(!planSelectorOpen)}
+                            className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 transition-all px-3 py-1.5 rounded-lg text-xs font-bold text-gray-700 min-w-[140px] justify-between shadow-sm"
                         >
-                            {Array.from({ length: currentPlan?.duration || 1 }, (_, i) => i + 1).map(d => (
-                                <option key={d} value={d}>Day {d}</option>
-                            ))}
-                        </select>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:block">Viewing Day {activeDay} Tracker</span>
+                            <span className="truncate max-w-[120px]">{currentPlan ? currentPlan.name : 'Select Plan'}</span>
+                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${planSelectorOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+
+                        {planSelectorOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setPlanSelectorOpen(false)}></div>
+                                <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fade-in-up">
+                                    <div className="p-2 border-b border-gray-50 bg-gray-50/50">
+                                        <div className="relative">
+                                            <input
+                                                autoFocus
+                                                value={planSearchQuery}
+                                                onChange={(e) => setPlanSearchQuery(e.target.value)}
+                                                placeholder="Search plans..."
+                                                className="w-full pl-3 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B]/20 transition-all placeholder-gray-300 text-gray-700"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="max-h-[200px] overflow-y-auto custom-scrollbar p-1">
+                                        {savedPlans.filter(p => p.name.toLowerCase().includes(planSearchQuery.toLowerCase())).length > 0 ? (
+                                            savedPlans.filter(p => p.name.toLowerCase().includes(planSearchQuery.toLowerCase())).map(p => (
+                                                <button
+                                                    key={p.id}
+                                                    onClick={() => {
+                                                        setSelectedPlanId(p.id);
+                                                        localStorage.setItem('cyom_tracker_active_plan_id', p.id);
+                                                        setPlanSelectorOpen(false);
+                                                        setPlanSearchQuery('');
+                                                    }}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between mb-0.5 ${selectedPlanId === p.id ? 'bg-[#2E7D6B]/10 text-[#2E7D6B]' : 'hover:bg-gray-50 text-gray-600'}`}
+                                                >
+                                                    <span className="truncate">{p.name}</span>
+                                                    {selectedPlanId === p.id && <svg className="w-3 h-3 text-[#2E7D6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="p-4 text-center text-gray-400 text-xs italic">No plans found</div>
+                                        )}
+                                    </div>
+                                    <div className="p-2 border-t border-gray-50 bg-gray-50/30">
+                                        <button onClick={() => navigate('/goal-selection')} className="w-full py-1.5 text-center text-[10px] uppercase font-black text-[#2E7D6B] hover:bg-[#2E7D6B]/5 rounded-lg transition-colors">
+                                            + Create New Plan
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Segmented Tabs */}
@@ -686,66 +752,7 @@ const MealTrackerPage = () => {
                         <div className="mt-4 bg-white/94 backdrop-blur-xl p-4 sm:p-6 rounded-[28px] shadow-2xl border border-white/50 text-[#1F2933] animate-fade-in-up">
                             {/* --- WHITE CARD CONTENT (Old Header Parts + Tracker) --- */}
 
-                            <div className="flex items-center justify-between mb-4">
-                                <div></div>
-                                {/* Plan Selector */}
-                                {/* Plan Selector (Searchable Dropdown) */}
-                                <div className="relative z-30">
-                                    <button
-                                        onClick={() => setPlanSelectorOpen(!planSelectorOpen)}
-                                        className="flex items-center gap-2 bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all px-4 py-2 rounded-xl text-xs font-bold text-gray-700 min-w-[140px] justify-between"
-                                    >
-                                        <span className="truncate max-w-[120px]">{currentPlan ? currentPlan.name : 'Select Plan'}</span>
-                                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${planSelectorOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                    </button>
 
-                                    {planSelectorOpen && (
-                                        <>
-                                            <div className="fixed inset-0 z-30" onClick={() => setPlanSelectorOpen(false)}></div>
-                                            <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-40 overflow-hidden animate-fade-in-up">
-                                                <div className="p-3 border-b border-gray-50 bg-gray-50/50">
-                                                    <div className="relative">
-                                                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                                        <input
-                                                            autoFocus
-                                                            value={planSearchQuery}
-                                                            onChange={(e) => setPlanSearchQuery(e.target.value)}
-                                                            placeholder="Search plans..."
-                                                            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-[#2E7D6B] focus:ring-1 focus:ring-[#2E7D6B]/20 transition-all placeholder-gray-300 text-gray-700"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="max-h-[200px] overflow-y-auto custom-scrollbar p-1">
-                                                    {savedPlans.filter(p => p.name.toLowerCase().includes(planSearchQuery.toLowerCase())).length > 0 ? (
-                                                        savedPlans.filter(p => p.name.toLowerCase().includes(planSearchQuery.toLowerCase())).map(p => (
-                                                            <button
-                                                                key={p.id}
-                                                                onClick={() => {
-                                                                    setSelectedPlanId(p.id);
-                                                                    localStorage.setItem('cyom_tracker_active_plan_id', p.id);
-                                                                    setPlanSelectorOpen(false);
-                                                                    setPlanSearchQuery('');
-                                                                }}
-                                                                className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between mb-0.5 ${selectedPlanId === p.id ? 'bg-[#2E7D6B]/10 text-[#2E7D6B]' : 'hover:bg-gray-50 text-gray-600'}`}
-                                                            >
-                                                                <span className="truncate">{p.name}</span>
-                                                                {selectedPlanId === p.id && <svg className="w-4 h-4 text-[#2E7D6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
-                                                            </button>
-                                                        ))
-                                                    ) : (
-                                                        <div className="p-4 text-center text-gray-400 text-xs italic">No plans found</div>
-                                                    )}
-                                                </div>
-                                                <div className="p-2 border-t border-gray-50 bg-gray-50/30">
-                                                    <button onClick={() => navigate('/goal-selection')} className="w-full py-2 text-center text-[10px] uppercase font-black text-[#2E7D6B] hover:bg-[#2E7D6B]/5 rounded-lg transition-colors">
-                                                        + Create New Plan
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
 
                             {/* Day Selector */}
                             {currentPlan && (

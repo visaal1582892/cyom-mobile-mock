@@ -32,6 +32,9 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                         <button onClick={() => { navigate('/cyom-dashboard'); onClose(); }} className={getButtonClass('/cyom-dashboard')}>
                             <span className="text-lg">📊</span> Dashboard
                         </button>
+                        <button onClick={() => { navigate('/meal-tracker'); onClose(); }} className={getButtonClass('/meal-tracker')}>
+                            <span className="text-lg">🍽️</span> Meal Tracker
+                        </button>
                         <button onClick={() => { navigate('/meal-history'); onClose(); }} className={getButtonClass('/meal-history')}>
                             <span className="text-lg">📜</span> Meal History
                         </button>
@@ -40,6 +43,10 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                         </button>
                         <button onClick={() => { navigate('/saved-plans'); onClose(); }} className={getButtonClass('/saved-plans')}>
                             <span className="text-lg">📂</span> Saved Plans
+                        </button>
+                        <div className="my-2 border-t border-gray-100"></div>
+                        <button onClick={() => { navigate('/'); onClose(); }} className={getButtonClass('/')}>
+                            <span className="text-lg">🏥</span> Medplus Home
                         </button>
                     </div>
                 </div>

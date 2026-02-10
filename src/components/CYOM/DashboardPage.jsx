@@ -2,31 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import SidebarMenu from './SidebarMenu';
+import CommonProfileMenu from './CommonProfileMenu';
 import { RDA_TARGETS } from '../../utils/nutrientData';
 
 const DashboardPage = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [dailyLogs, setDailyLogs] = useState({});
     const [loading, setLoading] = useState(true);
 
     // Filter States
-    const [timeRange, setTimeRange] = useState(7); // 7 or 30 days
-    const [selectedNutrient, setSelectedNutrient] = useState('calories'); // 'calories', 'protein', 'vitC', 'iron', etc.
+    const [timeRange, setTimeRange] = useState(1); // 1, 7, or 15 days
+    const [selectedCategory, setSelectedCategory] = useState('macros'); // 'macros', 'vitamins', 'minerals'
 
     // --- MOCK DATA GENERATOR ---
     const generateMockData = (existingLogs) => {
         const today = new Date();
         const mockLogs = { ...existingLogs };
 
-        // Generate last 30 days if missing
+        // Constants for goals (Daily)
+        const GOAL_CALS = 2000;
+        const GOAL_PRO = 150;
+        const GOAL_CARBS = 250;
+        const GOAL_FATS = 70;
+
+        // Generate last 30 days if missing OR if missing micro data
         for (let i = 0; i < 30; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
             const dateStr = d.toISOString().split('T')[0];
 
-            if (!mockLogs[dateStr]) {
+            const existingLog = mockLogs[dateStr];
+
+            // Check if log has valid data (non-zero calories)
+            const hasData = existingLog && existingLog.calories && existingLog.calories.consumed > 0;
+
+            // Check if log has micro-nutrient structure AND non-zero values
+            let hasValidMicros = false;
+            if (existingLog && existingLog.micros && existingLog.micros.vitamins) {
+                const vitValues = Object.values(existingLog.micros.vitamins);
+                if (vitValues.length > 0) {
+                    // Check if at least some vitamins have been consumed (sum > 0)
+                    const totalVitConsumed = vitValues.reduce((acc, curr) => acc + (curr.consumed || 0), 0);
+                    if (totalVitConsumed > 0) hasValidMicros = true;
+                }
+            }
+
+            // Regenerate if log is missing, has no valid micros (0 values), or is an "empty" log (0 calories)
+            if (!existingLog || !hasValidMicros || !hasData) {
                 // Randomize data
                 const variance = Math.random() * 0.4 + 0.8; // 0.8 to 1.2
 
@@ -46,15 +69,19 @@ const DashboardPage = () => {
                     minerals[k] = genMicro(v.target);
                 });
 
+                // Preserve existing macro data if available, otherwise generate
+                const calories = existingLog?.calories || { consumed: Math.round(GOAL_CALS * variance), total: GOAL_CALS };
+                const macros = existingLog?.macros || {
+                    protein: { consumed: Math.round(GOAL_PRO * variance), total: GOAL_PRO },
+                    carbs: { consumed: Math.round(GOAL_CARBS * variance), total: GOAL_CARBS },
+                    fats: { consumed: Math.round(GOAL_FATS * variance), total: GOAL_FATS }
+                };
+
                 mockLogs[dateStr] = {
                     date: dateStr,
                     dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
-                    calories: { consumed: Math.round(2000 * variance), total: 2000 },
-                    macros: {
-                        protein: { consumed: Math.round(150 * variance), total: 150 },
-                        carbs: { consumed: Math.round(250 * variance), total: 250 },
-                        fats: { consumed: Math.round(70 * variance), total: 70 }
-                    },
+                    calories,
+                    macros,
                     micros: {
                         vitamins,
                         minerals
@@ -68,179 +95,178 @@ const DashboardPage = () => {
     useEffect(() => {
         let logs = JSON.parse(localStorage.getItem('cyom_daily_logs') || '{}');
 
-        // Check if we need to regenerate to get new fields (e.g. if a newly added vitamin is missing)
-        // Simple check: see if a known vitamin key exists in the first log
-        const firstLog = Object.values(logs)[0];
-        const needsRegen = !firstLog || !firstLog.micros || !firstLog.micros.vitamins || !firstLog.micros.vitamins.vitC;
+        // Always run generation to backfill any missing micro data in past logs
+        logs = generateMockData(logs);
 
-        if (Object.keys(logs).length < 5 || needsRegen) {
-            logs = generateMockData(logs);
-            // We don't forcefully save mock data to localStorage to avoid overwriting user progress if possible,
-            // but for a smooth demo update, we might need to. 
-            // Let's just use it in state for now unless it was empty.
-            if (Object.keys(logs).length < 2) {
-                localStorage.setItem('cyom_daily_logs', JSON.stringify(logs));
-            }
-        }
+        // Save back updated logs
+        localStorage.setItem('cyom_daily_logs', JSON.stringify(logs));
+
         setDailyLogs(logs);
         setLoading(false);
     }, []);
 
-    const handleLogout = () => navigate('/login');
-
-    // --- HELPER: Get Trend Data ---
-    const getTrendData = () => {
-        const days = [];
+    // --- CALCULATE TOTALS (Not Averages) ---
+    const getTotals = (range) => {
         const today = new Date();
-        for (let i = timeRange - 1; i >= 0; i--) { // Reverse order for graph (left to right)
+
+        // Initial Consumption Sums
+        const sums = {
+            calories: { consumed: 0 },
+            protein: { consumed: 0 },
+            carbs: { consumed: 0 },
+            fats: { consumed: 0 },
+            vitamins: {},
+            minerals: {}
+        };
+
+        // Initialize micro sums
+        Object.keys(RDA_TARGETS.vitamins).forEach(k => sums.vitamins[k] = { consumed: 0 });
+        Object.keys(RDA_TARGETS.minerals).forEach(k => sums.minerals[k] = { consumed: 0 });
+
+        // Sum up Consumption from Logs
+        for (let i = 0; i < range; i++) {
             const d = new Date(today);
-            d.setDate(today.getDate() - i);
+            d.setDate(today.getDate() - (i + 1)); // Start from Yesterday
             const dateStr = d.toISOString().split('T')[0];
             const log = dailyLogs[dateStr];
 
-            let val = 0;
-            let target = 100;
-            let unit = '';
+            if (log) {
+                sums.calories.consumed += log.calories?.consumed || 0;
+                sums.protein.consumed += log.macros?.protein?.consumed || 0;
+                sums.carbs.consumed += log.macros?.carbs?.consumed || 0;
+                sums.fats.consumed += log.macros?.fats?.consumed || 0;
 
-            if (selectedNutrient === 'calories') {
-                val = log?.calories?.consumed || 0;
-                target = log?.calories?.total || 2000;
-                unit = 'kcal';
-            } else if (['protein', 'carbs', 'fats'].includes(selectedNutrient)) {
-                val = log?.macros?.[selectedNutrient]?.consumed || 0;
-                target = log?.macros?.[selectedNutrient]?.total || 100;
-                unit = 'g';
-            } else {
-                // Check micros
-                const vit = log?.micros?.vitamins?.[selectedNutrient];
-                const min = log?.micros?.minerals?.[selectedNutrient];
+                Object.keys(sums.vitamins).forEach(k => {
+                    const v = log.micros?.vitamins?.[k];
+                    if (v) {
+                        sums.vitamins[k].consumed += v.consumed;
+                    }
+                });
 
-                // Get target/unit from RDA constant
-                const rdaVit = RDA_TARGETS.vitamins[selectedNutrient];
-                const rdaMin = RDA_TARGETS.minerals[selectedNutrient];
-
-                if (vit) {
-                    val = vit.consumed;
-                    target = vit.total || rdaVit?.target || 100;
-                    unit = rdaVit?.unit || '';
-                } else if (min) {
-                    val = min.consumed;
-                    target = min.total || rdaMin?.target || 100;
-                    unit = rdaMin?.unit || '';
-                }
+                Object.keys(sums.minerals).forEach(k => {
+                    const m = log.micros?.minerals?.[k];
+                    if (m) {
+                        sums.minerals[k].consumed += m.consumed;
+                    }
+                });
             }
-
-            days.push({
-                date: dateStr,
-                dayName: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
-                value: Math.round(val),
-                target: Math.round(target),
-                unit
-            });
         }
-        return days;
+
+        // --- LOGIC FIX: CALCULATE TARGETS BASED ON RANGE ---
+        // Goals are fixed per day, so Range Total Goal = Daily Goal * Range
+        const dailyGoals = {
+            calories: 2000,
+            protein: 150,
+            carbs: 250,
+            fats: 70
+        };
+
+        sums.calories.total = dailyGoals.calories * range;
+        sums.protein.total = dailyGoals.protein * range;
+        sums.carbs.total = dailyGoals.carbs * range;
+        sums.fats.total = dailyGoals.fats * range;
+
+        Object.keys(sums.vitamins).forEach(k => {
+            sums.vitamins[k].total = RDA_TARGETS.vitamins[k].target * range;
+        });
+
+        Object.keys(sums.minerals).forEach(k => {
+            sums.minerals[k].total = RDA_TARGETS.minerals[k].target * range;
+        });
+
+        return sums;
     };
 
-    const trendData = getTrendData();
-
-    // --- HELPER: Get Today's Stats ---
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayLog = dailyLogs[todayStr] || {
-        calories: { consumed: 0, total: 2000 },
-        macros: { carbs: { consumed: 0, total: 0 }, protein: { consumed: 0, total: 0 }, fats: { consumed: 0, total: 0 } },
-        micros: { vitamins: {}, minerals: {} }
-    };
-
-    // Macro Data for Donut
-    const macroData = [
-        { name: 'Protein', value: todayLog.macros?.protein?.consumed || 0, color: '#3B82F6', total: todayLog.macros?.protein?.total || 1 },
-        { name: 'Carbs', value: todayLog.macros?.carbs?.consumed || 0, color: '#10B981', total: todayLog.macros?.carbs?.total || 1 },
-        { name: 'Fats', value: todayLog.macros?.fats?.consumed || 0, color: '#F59E0B', total: todayLog.macros?.fats?.total || 1 },
-    ];
-    const totalMacroConsumed = macroData.reduce((a, b) => a + b.value, 0) || 1;
-
+    const totals = getTotals(timeRange);
 
     // --- COMPONENTS ---
 
-    const BarChart = ({ data }) => {
-        const maxVal = Math.max(...data.map(d => d.value), ...data.map(d => d.target), 10);
-        const height = 180;
+    const LargeCircularProgress = ({ value, max, label, unit, color }) => {
+        const radius = 58; // Increased radius for more internal space
+        const stroke = 6;  // Thinner stroke
+        const normalizedRadius = radius - stroke * 2;
+        const circumference = normalizedRadius * 2 * Math.PI;
+        const strokeDashoffset = circumference - (Math.min(value / max, 1) * circumference);
 
         return (
-            <div className="flex gap-2 pt-6 overflow-x-auto custom-scrollbar pb-2 px-2 snap-x">
-                {data.map((d, i) => {
-                    const barHeight = (d.value / maxVal) * height;
-                    const isToday = d.date === todayStr;
-                    return (
-                        <div key={i} className="flex flex-col items-center gap-2 min-w-[36px] flex-1 cursor-pointer group relative snap-center">
-                            {/* Tooltip */}
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none shadow-lg">
-                                <div className="font-bold">{d.date}</div>
-                                <div>{d.value} / {d.target} {d.unit}</div>
-                            </div>
+            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all w-full">
+                <div className="relative flex items-center justify-center mb-2 group">
+                    {/* Shadow Behind Ring */}
+                    <div className="absolute inset-0 rounded-full blur-xl opacity-20 transform scale-90" style={{ backgroundColor: color }}></div>
 
-                            <div className="w-full bg-gray-50 rounded-lg relative h-[180px] flex items-end overflow-hidden group-hover:bg-gray-100 transition-colors border border-gray-100">
-                                {/* Target Line */}
-                                <div
-                                    className="absolute w-full border-t border-dashed border-gray-300 z-10 opacity-50"
-                                    style={{ bottom: `${(d.target / maxVal) * 100}%` }}
-                                ></div>
-
-                                <div
-                                    style={{ height: `${barHeight}px` }}
-                                    className={`w-full rounded-t-md transition-all duration-500 ${isToday ? 'bg-[#2E7D6B]' : 'bg-[#43AA95]/70'} group-hover:bg-[#2E7D6B]`}
-                                ></div>
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-400 rotate-0 whitespace-nowrap w-full text-center">{d.dayName.split(' ')[0]}</span>
-                        </div>
-                    );
-                })}
+                    <svg height={radius * 2} width={radius * 2} className="rotate-[-90deg] relative z-10">
+                        <circle
+                            stroke="#F3F4F6"
+                            strokeWidth={stroke}
+                            fill="transparent"
+                            r={normalizedRadius}
+                            cx={radius}
+                            cy={radius}
+                            strokeLinecap="round"
+                        />
+                        <circle
+                            stroke={color}
+                            fill="transparent"
+                            strokeWidth={stroke}
+                            strokeDasharray={circumference + ' ' + circumference}
+                            style={{ strokeDashoffset, transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                            strokeLinecap="round"
+                            r={normalizedRadius}
+                            cx={radius}
+                            cy={radius}
+                        />
+                    </svg>
+                    <div className="absolute flex flex-col items-center z-20">
+                        <span className="text-lg font-black text-gray-800 tracking-tight">{value}</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase">{unit}</span>
+                    </div>
+                </div>
+                <div className="text-sm font-bold text-gray-700">{label}</div>
+                <div className="text-[10px] font-medium text-gray-400 mt-1 bg-gray-50 px-2 py-0.5 rounded-md">Goal: {max}</div>
             </div>
         );
     };
 
-    const MacroDonut = () => {
-        const size = 160;
-        const strokeWidth = 12;
-        const radius = (size - strokeWidth) / 2;
-        const center = size / 2;
-        let startAngle = 0;
-
+    const SpaciousLinearProgress = ({ label, value, max, unit, color }) => {
+        const percentage = Math.min((value / max) * 100, 100);
         return (
-            <div className="relative w-[160px] h-[160px] flex items-center justify-center">
-                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                    <circle cx={center} cy={center} r={radius} fill="none" stroke="#E5E7EB" strokeWidth={strokeWidth} />
-                    {macroData.map((d, i) => {
-                        const percentage = d.value / totalMacroConsumed;
-                        const dashArray = 2 * Math.PI * radius;
-                        const dashOffset = dashArray * (1 - percentage);
-                        const rotation = startAngle * 360 - 90;
-                        startAngle += percentage;
-                        if (d.value === 0) return null;
-                        return (
-                            <circle
-                                key={i}
-                                cx={center}
-                                cy={center}
-                                r={radius}
-                                fill="none"
-                                stroke={d.color}
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={dashArray}
-                                strokeDashoffset={dashOffset}
-                                transform={`rotate(${rotation} ${center} ${center})`}
-                                strokeLinecap="round"
-                            />
-                        );
-                    })}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-black text-gray-800">{todayLog.calories?.consumed || 0}</span>
-                    <span className="text-[10px] uppercase font-bold text-gray-400">kcal Today</span>
+            <div className="mb-2 bg-white p-3 rounded-xl border border-gray-100 shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgb(0,0,0,0.05)] transition-all">
+                <div className="flex justify-between items-end mb-1.5">
+                    <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm`} style={{ backgroundColor: color }}>
+                            {label.charAt(0)}
+                        </div>
+                        <div>
+                            <span className="text-xs font-bold text-gray-800 block leading-tight">{label}</span>
+                            <span className="text-[9px] text-gray-400 font-medium">Target: {max} {unit}</span>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-sm font-black text-gray-800 block">{value} <span className="text-[9px] font-medium text-gray-400">{unit}</span></span>
+                    </div>
+                </div>
+                <div className="w-full bg-gray-50 rounded-full h-1.5 overflow-hidden">
+                    <div
+                        className="h-full rounded-full transition-all duration-700 ease-out relative"
+                        style={{ width: `${percentage}%`, backgroundColor: color }}
+                    >
+                    </div>
                 </div>
             </div>
         );
     };
+
+    const ToggleButton = ({ label, value, selected, onClick }) => (
+        <button
+            onClick={() => onClick(value)}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all ${selected === value
+                ? 'bg-white text-[#0F4C3E] shadow-sm border border-gray-100'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -259,86 +285,122 @@ const DashboardPage = () => {
                         <div className="text-lg font-bold">Health Dashboard</div>
                     </div>
                 </div>
-                <div className="relative">
-                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-md hover:border-white transition-all">
-                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
-                    </button>
-                    {isProfileOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
-                            <div className="absolute right-0 top-14 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 py-2 z-20 animate-fade-in-up text-gray-800">
-                                <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors">My Profile</button>
-                                <button onClick={handleLogout} className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-500 text-sm font-medium transition-colors">Logout</button>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <CommonProfileMenu />
             </div>
 
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* MAIN CONTENT */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-20 space-y-6 relative z-10">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pb-20 space-y-4 relative z-10">
 
-                {/* 1. DYNAMIC TREND CHART */}
-                <div className="bg-white/95 backdrop-blur-xl p-5 md:p-6 rounded-[32px] shadow-xl text-gray-800">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                        <h2 className="text-lg font-black tracking-tight text-gray-800">Trends</h2>
+                <div className="bg-[#F8FAFC]/95 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-2xl text-gray-800 min-h-[500px]">
 
-                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                            {/* Nutrient Selector - Compact & Mobile Friendly */}
-                            <div className="relative flex-1 sm:flex-none min-w-[140px]">
+                    {/* TOP CONTROLS - SINGLE ROW */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                        <div>
+                            <h2 className="text-lg font-black tracking-tight text-gray-800">Your Totals</h2>
+                            <p className="text-xs text-gray-500 font-medium">Accumulated intake</p>
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            {/* Category Select */}
+                            <div className="relative">
                                 <select
-                                    value={selectedNutrient}
-                                    onChange={(e) => setSelectedNutrient(e.target.value)}
-                                    className="w-full appearance-none bg-gray-50 text-sm font-bold text-gray-700 pl-4 pr-8 py-2.5 rounded-xl border border-gray-100 outline-none focus:ring-2 focus:ring-[#2E7D6B] focus:border-[#2E7D6B] transition-all cursor-pointer shadow-sm"
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value)}
+                                    className="appearance-none bg-white text-xs font-bold text-gray-700 pl-4 pr-9 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#2E7D6B]/20 focus:border-[#2E7D6B] shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
                                 >
-                                    <optgroup label="General">
-                                        <option value="calories">Calories (kcal)</option>
-                                    </optgroup>
-                                    <optgroup label="Macros">
-                                        <option value="protein">Protein (g)</option>
-                                        <option value="carbs">Carbs (g)</option>
-                                        <option value="fats">Fats (g)</option>
-                                    </optgroup>
-                                    <optgroup label="Vitamins">
-                                        {Object.entries(RDA_TARGETS.vitamins).map(([key, val]) => (
-                                            <option key={key} value={key}>{val.label} ({val.unit})</option>
-                                        ))}
-                                    </optgroup>
-                                    <optgroup label="Minerals">
-                                        {Object.entries(RDA_TARGETS.minerals).map(([key, val]) => (
-                                            <option key={key} value={key}>{val.label} ({val.unit})</option>
-                                        ))}
-                                    </optgroup>
+                                    <option value="macros">Macros</option>
+                                    <option value="vitamins">Vitamins</option>
+                                    <option value="minerals">Minerals</option>
                                 </select>
                                 <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                 </div>
                             </div>
 
-                            {/* Time Range Toggle */}
-                            <div className="flex bg-gray-100 rounded-xl p-1 shrink-0">
-                                <button
-                                    onClick={() => setTimeRange(7)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 7 ? 'bg-white shadow-sm text-[#2E7D6B]' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    7D
-                                </button>
-                                <button
-                                    onClick={() => setTimeRange(30)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeRange === 30 ? 'bg-white shadow-sm text-[#2E7D6B]' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    30D
-                                </button>
+                            {/* Time Toggle */}
+                            <div className="flex bg-gray-100 p-1 rounded-xl flex-1 sm:flex-none">
+                                <ToggleButton label="1 Day" value={1} selected={timeRange} onClick={setTimeRange} />
+                                <ToggleButton label="7 Days" value={7} selected={timeRange} onClick={setTimeRange} />
+                                <ToggleButton label="15 Days" value={15} selected={timeRange} onClick={setTimeRange} />
                             </div>
                         </div>
                     </div>
 
-                    <BarChart data={trendData} />
-                </div>
+                    {/* CONTENT AREA */}
+                    <div className="animate-fade-in-up">
+                        {selectedCategory === 'macros' && (
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <LargeCircularProgress
+                                    value={totals.calories.consumed}
+                                    max={totals.calories.total}
+                                    label="Calories"
+                                    unit="kcal"
+                                    color="#10B981"
+                                />
+                                <LargeCircularProgress
+                                    value={totals.protein.consumed}
+                                    max={totals.protein.total}
+                                    label="Protein"
+                                    unit="g"
+                                    color="#3B82F6"
+                                />
+                                <LargeCircularProgress
+                                    value={totals.carbs.consumed}
+                                    max={totals.carbs.total}
+                                    label="Carbs"
+                                    unit="g"
+                                    color="#F59E0B"
+                                />
+                                <LargeCircularProgress
+                                    value={totals.fats.consumed}
+                                    max={totals.fats.total}
+                                    label="Fats"
+                                    unit="g"
+                                    color="#EC4899"
+                                />
+                            </div>
+                        )}
 
-                {/* 2. MACRO BREAKDOWN & MICROS REMOVED */}
+                        {selectedCategory === 'vitamins' && (
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-black text-gray-500 mb-2 uppercase tracking-widest px-1">Vitamin Intake</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {Object.entries(RDA_TARGETS.vitamins).map(([key, info]) => (
+                                        <SpaciousLinearProgress
+                                            key={key}
+                                            label={info.label}
+                                            value={totals.vitamins[key]?.consumed || 0}
+                                            max={totals.vitamins[key]?.total || 0}
+                                            unit={info.unit}
+                                            color="#8B5CF6"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {selectedCategory === 'minerals' && (
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-black text-gray-500 mb-2 uppercase tracking-widest px-1">Mineral Intake</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {Object.entries(RDA_TARGETS.minerals).map(([key, info]) => (
+                                        <SpaciousLinearProgress
+                                            key={key}
+                                            label={info.label}
+                                            value={totals.minerals[key]?.consumed || 0}
+                                            max={totals.minerals[key]?.total || 0}
+                                            unit={info.unit}
+                                            color="#14B8A6"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                </div>
             </div>
         </div>
     );

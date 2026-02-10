@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import { foodDatabase } from '../../data/foodDatabase';
+import CommonProfileMenu from './CommonProfileMenu';
 import TeaTabIcon from '../../assets/tea_tab.png';
 import CoffeeTabIcon from '../../assets/coffee_tab.png';
 import MilkTabIcon from '../../assets/milk_tab.png';
@@ -932,6 +933,9 @@ const MealPlannerPage = () => {
                                     <span className="text-gray-300 font-medium text-xs"> / {targetF}g</span>
                                 </div>
                             </div>
+                        </div>
+                        <div className="pl-4 border-l border-gray-100 ml-4">
+                            <CommonProfileMenu />
                         </div>
                     </div>
                 </div>
