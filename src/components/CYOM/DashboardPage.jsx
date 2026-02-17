@@ -19,6 +19,8 @@ const DashboardPage = () => {
     const generateMockData = (existingLogs) => {
         const today = new Date();
         const mockLogs = { ...existingLogs };
+        const userGender = userData.gender || 'Male';
+        const userRDA = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
 
         // Constants for goals (Daily)
         const GOAL_CALS = 2000;
@@ -60,12 +62,12 @@ const DashboardPage = () => {
                 });
 
                 const vitamins = {};
-                Object.entries(RDA_TARGETS.vitamins).forEach(([k, v]) => {
+                Object.entries(userRDA.vitamins).forEach(([k, v]) => {
                     vitamins[k] = genMicro(v.target);
                 });
 
                 const minerals = {};
-                Object.entries(RDA_TARGETS.minerals).forEach(([k, v]) => {
+                Object.entries(userRDA.minerals).forEach(([k, v]) => {
                     minerals[k] = genMicro(v.target);
                 });
 
@@ -108,6 +110,8 @@ const DashboardPage = () => {
     // --- CALCULATE TOTALS (Not Averages) ---
     const getTotals = (range) => {
         const today = new Date();
+        const userGender = userData.gender || 'Male';
+        const userRDA = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
 
         // Initial Consumption Sums
         const sums = {
@@ -120,8 +124,8 @@ const DashboardPage = () => {
         };
 
         // Initialize micro sums
-        Object.keys(RDA_TARGETS.vitamins).forEach(k => sums.vitamins[k] = { consumed: 0 });
-        Object.keys(RDA_TARGETS.minerals).forEach(k => sums.minerals[k] = { consumed: 0 });
+        Object.keys(userRDA.vitamins).forEach(k => sums.vitamins[k] = { consumed: 0 });
+        Object.keys(userRDA.minerals).forEach(k => sums.minerals[k] = { consumed: 0 });
 
         // Sum up Consumption from Logs
         for (let i = 0; i < range; i++) {
@@ -167,12 +171,33 @@ const DashboardPage = () => {
         sums.fats.total = dailyGoals.fats * range;
 
         Object.keys(sums.vitamins).forEach(k => {
-            sums.vitamins[k].total = RDA_TARGETS.vitamins[k].target * range;
+            sums.vitamins[k].total = userRDA.vitamins[k].target * range;
         });
 
         Object.keys(sums.minerals).forEach(k => {
-            sums.minerals[k].total = RDA_TARGETS.minerals[k].target * range;
+            sums.minerals[k].total = userRDA.minerals[k].target * range;
         });
+
+        // --- AGGREGATE B-VITAMINS INTO B-SCORE ---
+        const bVitKeys = ['thiamine', 'riboflavin', 'niacin', 'vitB6', 'folate', 'vitB12'];
+        let bScoreSum = 0;
+
+        bVitKeys.forEach(key => {
+            const data = sums.vitamins[key];
+            if (data && data.total > 0) {
+                bScoreSum += Math.min(1, data.consumed / data.total);
+            }
+            // Remove individual key from display list
+            delete sums.vitamins[key];
+        });
+
+        const bScoreValue = Math.round((bScoreSum / bVitKeys.length) * 100);
+
+        // Add B-Score
+        sums.vitamins['vitBScore'] = {
+            consumed: bScoreValue,
+            total: 100 // Score is out of 100
+        };
 
         return sums;
     };
@@ -267,6 +292,9 @@ const DashboardPage = () => {
             {label}
         </button>
     );
+
+    const userGender = userData.gender || 'Male';
+    const userRDA = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
 
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
@@ -367,16 +395,24 @@ const DashboardPage = () => {
                             <div className="space-y-3">
                                 <h3 className="text-xs font-black text-gray-500 mb-2 uppercase tracking-widest px-1">Vitamin Intake</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {Object.entries(RDA_TARGETS.vitamins).map(([key, info]) => (
-                                        <SpaciousLinearProgress
-                                            key={key}
-                                            label={info.label}
-                                            value={totals.vitamins[key]?.consumed || 0}
-                                            max={totals.vitamins[key]?.total || 0}
-                                            unit={info.unit}
-                                            color="#8B5CF6"
-                                        />
-                                    ))}
+                                    {Object.keys(totals.vitamins).map((key) => {
+                                        let info = userRDA.vitamins[key];
+                                        if (key === 'vitBScore') {
+                                            info = { label: 'Vitamin B Complex', unit: 'Score' };
+                                        }
+                                        if (!info) return null;
+
+                                        return (
+                                            <SpaciousLinearProgress
+                                                key={key}
+                                                label={info.label}
+                                                value={totals.vitamins[key]?.consumed || 0}
+                                                max={totals.vitamins[key]?.total || 0}
+                                                unit={info.unit}
+                                                color="#8B5CF6"
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -385,7 +421,7 @@ const DashboardPage = () => {
                             <div className="space-y-3">
                                 <h3 className="text-xs font-black text-gray-500 mb-2 uppercase tracking-widest px-1">Mineral Intake</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {Object.entries(RDA_TARGETS.minerals).map(([key, info]) => (
+                                    {Object.entries(userRDA.minerals).map(([key, info]) => (
                                         <SpaciousLinearProgress
                                             key={key}
                                             label={info.label}

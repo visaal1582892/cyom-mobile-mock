@@ -58,7 +58,7 @@ The complete flow from discovering the feature to saving a personalized plan.
     *   **Visuals**: Circular progress bars for Macros/Calories and linear bars for Vitamins/Minerals.
 *   **Logic**:
     *   **Data Aggregation**: Sums up nutrient data from past logs (backfilling empty days if necessary).
-    *   **Micro-Nutrients**: Tracks specific Vitamins (A, B, C, D, E, K) and Minerals (Iron, Calcium, Zinc, Magnesium, Potassium, Sodium).
+    *   **Micro-Nutrients**: Tracks specific Vitamins (A, B-Complex, C, D) and Minerals (Calcium, Magnesium, Iron, Zinc, Iodine), adhering to ICMR-NIN RDA 2020 standards.
 *   **Goal**:  Visualize health impact and ensuring balanced nutrition over time.
 
 ## 2. Core Functionalities
@@ -206,6 +206,40 @@ When a user clicks a suggestion (e.g., adding Whey Protein to oatmeal):
 *   Instead, it uses the **Smart Balancing Algorithm (Section 3.4)** to reverse-calculate the room needed.
 *   **Result**: It slightly reduces the Oats portion to fit the Whey Protein, resulting in a meal with Higher Protein but Same Total Calories.
 
+### 3.6. Micronutrient Targets (ICMR-NIN 2020)
+The system tracks specific vitamins and minerals against the standards set by the *Indian Council of Medical Research - National Institute of Nutrition (2020)*.
+
+**A. Vitamin B Complex Scoring**
+To simplify the display of multiple B-vitamins, the system calculates a single "Vitamin B Score".
+*   **Logic**: It calculates the percentage adherence for each B-vitamin (Thiamine, Riboflavin, Niacin, B6, Folate, B12), capped at 100%.
+*   **Formula**: `Score = Average( %Met_B1, %Met_B2, ... %Met_B12 )`
+*   **Goal**: Provides a holistic view of B-vitamin intake without cluttering the UI.
+
+**B. RDA Reference Tables**
+The daily targets vary dynamically based on the user's gender.
+
+**Vitamins**
+| Nutrient | Male Target | Female Target | Unit |
+| :--- | :--- | :--- | :--- |
+| **Vitamin A** | 1000 | 840 | mcg |
+| **Vitamin C** | 80 | 65 | mg |
+| **Vitamin D** | 600 | 600 | IU |
+| **Thiamine (B1)** | 1.8 | 1.7 | mg |
+| **Riboflavin (B2)** | 2.5 | 2.4 | mg |
+| **Niacin (B3)** | 18 | 14 | mg |
+| **Vitamin B6** | 2.4 | 1.9 | mg |
+| **Folate (B9)** | 300 | 220 | mcg |
+| **Vitamin B12** | 2.2 | 2.2 | mcg |
+
+**Minerals**
+| Nutrient | Male Target | Female Target | Unit |
+| :--- | :--- | :--- | :--- |
+| **Calcium** | 1000 | 1000 | mg |
+| **Magnesium** | 440 | 370 | mg |
+| **Iron** | 19 | 29 | mg |
+| **Zinc** | 17 | 13 | mg |
+| **Iodine** | 150 | 150 | mcg |
+
 ## 4. System Feedback & User Messages
 The system provides clear feedback for inputs and interactions.
 
@@ -233,7 +267,34 @@ Users can take their plans offline or share them using the "Download" menu.
 *   **PDF Document**: Generates a clean, printable document suitable for sticking on a fridge or sharing with a trainer.
 *   **Excel Sheet**: providing a raw data view for users who want to perform their own tracking or analysis in a spreadsheet.
 
-## 6. App Navigation (Sidebar)
+## 6. Functional Capabilities
+
+### 6.1. Meal Planner
+The core engine for generating personalized nutrition plans.
+*   **Personalised Plan Generation**: Creates a full weekly meal plan based on the user's BMR, TDEE, and specific goal (Weight Loss/Gain).
+*   **Smart Ingredient Swapping**: Allows users to swap ingredients within a meal while automatically adjusting portions of other items to maintain the exact calorie count.
+*   **Export Options**: Users can download their plan as a PDF for printing or an Excel sheet for detailed data analysis.
+
+### 6.2. Meal Tracking
+A real-time logging system to track daily adherence.
+*   **Plan Switching**: Users can toggle between different saved plans (e.g., "Muscle Gain" vs "Maintenance") directly from the tracker header.
+*   **Day Navigation**: Horizontal day tabs allow users to plan ahead or backfill logs for previous days within the plan duration.
+*   **Smart Search & Log**: A comprehensive food database search that allows adding custom items or "Extras" outside the generated plan.
+*   **Real-time Updates**: As food is logged, the daily progress bars (Protein, Carbs, Fats) update instantly to show remaining budgets.
+
+### 6.3. Meal History & Persistence
+A chronological record of the user's nutritional journey.
+*   **Chronological Logging**: Every saved day is permanently stored in the history log, accessible by date.
+*   **Context Switching**: Clicking on a past history entry reloads that specific day's state into the Tracker, allowing users to review exactly what they ate.
+*   **Data Persistence**: All data is stored locally, ensuring that logs are saved even if the app is closed or offline.
+
+### 6.4. Dashboard & Analytics
+The central hub for long-term progress monitoring.
+*   **Trend Analysis**: Users can view their calorie and macro intake trends over the last 7 or 15 days to identify patterns.
+*   **Micro-Nutrient Monitoring**: Detailed tracking of essential vitamins (A, C, D, and **Vitamin B Score**) and minerals (Calcium, Magnesium, Iron, Zinc, Iodine), highlighting strict deficiencies or surpluses.
+*   **Intelligent Backfilling**: The system visualizes trends even for days with missing data by projecting expected values based on the user's plan, identifying adherence gaps.
+
+## 7. App Navigation (Sidebar)
 The application features a comprehensive sidebar for quick access to key modules:
 *   **CYOM Home**: Central hub.
 *   **Dashboard**: Progress monitoring and analytics.

@@ -427,6 +427,9 @@ const MealTrackerPage = () => {
         const dayPlan = historySnapshot || plan?.plan?.[activeDay] || {};
         const slots = ['breakfast', 'morningSnack', 'lunch', 'snacks', 'dinner'];
 
+        const userGender = userData.gender || 'Male';
+        const rda = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
+
         let stats = {
             calories: { consumed: 0, total: 0 },
             macros: {
@@ -435,58 +438,63 @@ const MealTrackerPage = () => {
                 fats: { consumed: 0, total: 0 }
             },
             vitamins: {
-                vitB: { consumed: 0, total: 0 },
+                vitBScore: { consumed: 0, total: 0 }, // Will be calculated
                 vitC: { consumed: 0, total: 0 },
-                vitE: { consumed: 0, total: 0 },
-                vitK: { consumed: 0, total: 0 }
+                vitA: { consumed: 0, total: 0 },
+                vitD: { consumed: 0, total: 0 }
             },
             minerals: {
                 calcium: { consumed: 0, total: 0 },
-                iron: { consumed: 0, total: 0 },
-                phosphorus: { consumed: 0, total: 0 },
                 magnesium: { consumed: 0, total: 0 },
-                potassium: { consumed: 0, total: 0 },
-                sodium: { consumed: 0, total: 0 },
-                zinc: { consumed: 0, total: 0 }
+                iron: { consumed: 0, total: 0 },
+                zinc: { consumed: 0, total: 0 },
+                iodine: { consumed: 0, total: 0 }
             }
         };
 
         const getItemStats = (rawItem) => {
-            // Need to ensure nutrients exist
-            const enriched = getExtendedNutrients(rawItem);
-            return enriched;
+            return getExtendedNutrients(rawItem);
         };
+
+        // B-Score Accumulators
+        let allConsumedItems = [];
+        let allPlanItems = [];
 
         slots.forEach(slot => {
             // Plan Items
             const items = dayPlan[slot] || [];
 
-            // Iterate all plan items for Target calculation, regardless of 'removed' status
             items.forEach(rawItem => {
                 const item = getItemStats(rawItem);
                 const removed = isRemoved(slot, item.uuid);
 
-                // Always add to Total (Target)
+                // Add to Plan Totals
+                allPlanItems.push(item);
+
                 stats.calories.total += (item.calculatedCalories || 0);
                 stats.macros.carbs.total += (item.carbs || 0);
                 stats.macros.protein.total += (item.protein || 0);
                 stats.macros.fats.total += (item.fats || 0);
 
                 Object.keys(stats.vitamins).forEach(k => {
+                    if (k === 'vitBScore') return;
                     if (item.vitamins && item.vitamins[k]) stats.vitamins[k].total += item.vitamins[k];
                 });
                 Object.keys(stats.minerals).forEach(k => {
                     if (item.minerals && item.minerals[k]) stats.minerals[k].total += item.minerals[k];
                 });
 
-                // Only add to Consumed if NOT removed AND is checked
+                // Add to Consumed
                 if (!removed && isConsumed(slot, item.uuid)) {
+                    allConsumedItems.push(item);
+
                     stats.calories.consumed += (item.calculatedCalories || 0);
                     stats.macros.carbs.consumed += (item.carbs || 0);
                     stats.macros.protein.consumed += (item.protein || 0);
                     stats.macros.fats.consumed += (item.fats || 0);
 
                     Object.keys(stats.vitamins).forEach(k => {
+                        if (k === 'vitBScore') return;
                         if (item.vitamins && item.vitamins[k]) stats.vitamins[k].consumed += item.vitamins[k];
                     });
                     Object.keys(stats.minerals).forEach(k => {
@@ -495,18 +503,21 @@ const MealTrackerPage = () => {
                 }
             });
 
-            // Extra Items (Only affect CONSUMED, not PLAN TOTAL targets)
+            // Extra Items
             const extraItems = extraLogs[`${selectedPlanId}_${activeDay}_${slot}`] || [];
             extraItems.forEach(rawItem => {
                 const item = getItemStats(rawItem);
 
                 if (isConsumed(slot, item.uuid)) {
+                    allConsumedItems.push(item);
+
                     stats.calories.consumed += (item.calculatedCalories || 0);
                     stats.macros.carbs.consumed += (item.carbs || 0);
                     stats.macros.protein.consumed += (item.protein || 0);
                     stats.macros.fats.consumed += (item.fats || 0);
 
                     Object.keys(stats.vitamins).forEach(k => {
+                        if (k === 'vitBScore') return;
                         if (item.vitamins && item.vitamins[k]) stats.vitamins[k].consumed += item.vitamins[k];
                     });
                     Object.keys(stats.minerals).forEach(k => {
@@ -516,7 +527,38 @@ const MealTrackerPage = () => {
             });
         });
 
-        return stats;
+        // Calculate B-Score (Daily)
+        const calcBatchBScore = (batchItems) => {
+            if (!batchItems || batchItems.length === 0) return 0;
+
+            let totals = { thiamine: 0, riboflavin: 0, niacin: 0, vitB6: 0, folate: 0, vitB12: 0 };
+            batchItems.forEach(i => {
+                if (i.vitamins) {
+                    totals.thiamine += (i.vitamins.thiamine || 0);
+                    totals.riboflavin += (i.vitamins.riboflavin || 0);
+                    totals.niacin += (i.vitamins.niacin || 0);
+                    totals.vitB6 += (i.vitamins.vitB6 || 0);
+                    totals.folate += (i.vitamins.folate || 0);
+                    totals.vitB12 += (i.vitamins.vitB12 || 0);
+                }
+            });
+
+            const t = rda.vitamins;
+            const score = (
+                (Math.min(1, totals.thiamine / t.thiamine.target) +
+                    Math.min(1, totals.riboflavin / t.riboflavin.target) +
+                    Math.min(1, totals.niacin / t.niacin.target) +
+                    Math.min(1, totals.vitB6 / t.vitB6.target) +
+                    Math.min(1, totals.folate / t.folate.target) +
+                    Math.min(1, totals.vitB12 / t.vitB12.target)) / 6
+            ) * 100;
+
+            return Math.round(score);
+        };
+
+        stats.vitamins.vitBScore.total = calcBatchBScore(allPlanItems);
+        stats.vitamins.vitBScore.consumed = calcBatchBScore(allConsumedItems);
+
         return stats;
     };
 
@@ -1046,13 +1088,17 @@ const MealTrackerPage = () => {
                                         <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded-lg uppercase font-bold tracking-wide">Planned Targets</span>
                                     </h3>
                                     <div className="grid gap-5">
-                                        {/* Show B, C, E, K explicitly to match Planner */}
-                                        {['vitB', 'vitC', 'vitE', 'vitK'].map((key) => {
+                                        {['vitBScore', 'vitC', 'vitA', 'vitD'].map((key) => {
                                             const data = stats.vitamins[key] || { consumed: 0, total: 1 };
-                                            const rda = RDA_TARGETS.vitamins[key] || { label: key, target: 100, unit: '' };
-                                            // Ensure we use the RDA target as the "Total" if the plan doesn't specify one, 
-                                            // but 'stats' uses plan sums. If plan is empty, default to 1 to avoid div/0.
-                                            // Actually stats.vitamins total comes from the plan item sums. 
+
+                                            // Handle B-Score Label from imported RDA_TARGETS (which doesn't have vitBScore key)
+                                            // We use a mock object for B-Score label
+                                            const userGender = userData.gender || 'Male';
+                                            const userRDA = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
+
+                                            let rda = (key === 'vitBScore')
+                                                ? { label: 'Vitamin B Cmplx', unit: 'Score' }
+                                                : (userRDA.vitamins[key] || { label: key, unit: '' });
 
                                             const pct = Math.min(100, Math.round((data.consumed / (data.total || 1)) * 100));
 
@@ -1061,7 +1107,7 @@ const MealTrackerPage = () => {
                                                     <div className="flex justify-between items-end mb-2">
                                                         <div>
                                                             <div className="text-sm font-bold text-gray-700">{rda.label}</div>
-                                                            <div className="text-[10px] text-gray-400 font-medium">{pct}% of Goal</div>
+                                                            <div className="text-[10px] text-gray-400 font-medium">{pct}% of Plan</div>
                                                         </div>
                                                         <div className="text-xs font-black text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
                                                             {Math.round(data.consumed)} <span className="text-purple-400 font-medium">/ {Math.round(data.total)} {rda.unit}</span>
@@ -1088,10 +1134,13 @@ const MealTrackerPage = () => {
                                         <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-1 rounded-lg uppercase font-bold tracking-wide">Planned Targets</span>
                                     </h3>
                                     <div className="grid gap-5">
-                                        {/* Show all minerals explicitly to match Planner */}
-                                        {['calcium', 'iron', 'phosphorus', 'magnesium', 'potassium', 'sodium', 'zinc'].map((key) => {
+                                        {['calcium', 'magnesium', 'iron', 'zinc', 'iodine'].map((key) => {
                                             const data = stats.minerals[key] || { consumed: 0, total: 1 };
-                                            const rda = RDA_TARGETS.minerals[key] || { label: key, target: 100, unit: '' };
+
+                                            const userGender = userData.gender || 'Male';
+                                            const userRDA = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
+
+                                            const rda = userRDA.minerals[key] || { label: key, target: 100, unit: '' };
                                             const pct = Math.min(100, Math.round((data.consumed / (data.total || 1)) * 100));
 
                                             return (
@@ -1099,7 +1148,7 @@ const MealTrackerPage = () => {
                                                     <div className="flex justify-between items-end mb-2">
                                                         <div>
                                                             <div className="text-sm font-bold text-gray-700">{rda.label}</div>
-                                                            <div className="text-[10px] text-gray-400 font-medium">{pct}% of Goal</div>
+                                                            <div className="text-[10px] text-gray-400 font-medium">{pct}% of Plan</div>
                                                         </div>
                                                         <div className="text-xs font-black text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">
                                                             {Math.round(data.consumed)} <span className="text-teal-400 font-medium">/ {Math.round(data.total)} {rda.unit}</span>

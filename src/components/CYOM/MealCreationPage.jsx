@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import SidebarMenu from './SidebarMenu';
-import { foodDatabase } from '../../data/foodDatabase';
+
 
 import TeaSmall from '../../assets/tea small.png';
 import TeaMedium from '../../assets/tea medium.png';
@@ -62,8 +62,7 @@ const MealCreationPage = () => {
     });
 
     const [currentStep, setCurrentStep] = useState(1);
-    const [allergySearch, setAllergySearch] = useState('');
-    const [allergyResults, setAllergyResults] = useState([]);
+
 
     // Refreshment Planner Tab State
     const [activeTab, setActiveTab] = useState('Tea');
@@ -148,35 +147,15 @@ const MealCreationPage = () => {
         navigate('/meal-planner', { state: formData });
     };
 
-    const handleAllergySearch = (val) => {
-        setAllergySearch(val);
-        if (val.trim()) {
-            const ingredients = new Set();
-            foodDatabase.forEach(item => {
-                if (item.name.toLowerCase().includes(val.toLowerCase())) {
-                    ingredients.add(item.name);
-                }
-                if (item.composition) {
-                    item.composition.forEach(comp => {
-                        if (comp.name.toLowerCase().includes(val.toLowerCase())) {
-                            ingredients.add(comp.name);
-                        }
-                    });
-                }
-            });
-            setAllergyResults(Array.from(ingredients).filter(ing => !formData.allergies.includes(ing)).slice(0, 10));
-        } else {
-            setAllergyResults([]);
-        }
-    };
+
 
     const addAllergy = (ing) => {
-        setFormData(prev => ({
-            ...prev,
-            allergies: [...prev.allergies, ing]
-        }));
-        setAllergySearch('');
-        setAllergyResults([]);
+        if (!formData.allergies.includes(ing)) {
+            setFormData(prev => ({
+                ...prev,
+                allergies: [...prev.allergies, ing]
+            }));
+        }
     };
 
     const removeAllergy = (ing) => {
@@ -454,20 +433,34 @@ const MealCreationPage = () => {
                                 <div className="relative group">
                                     <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Allergies</label>
                                     <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={allergySearch}
-                                            onChange={(e) => handleAllergySearch(e.target.value)}
-                                            placeholder="Search..."
-                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm"
-                                        />
-                                        {allergyResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 max-h-48 overflow-y-auto custom-scrollbar">
-                                                {allergyResults.map(res => (
-                                                    <button key={res} onClick={() => addAllergy(res)} className="w-full text-left px-4 py-2 hover:bg-green-50 text-gray-700 font-medium text-sm transition-colors">{res}</button>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <select
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    addAllergy(e.target.value);
+                                                    e.target.value = "";
+                                                }
+                                            }}
+                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
+                                        >
+                                            <option value="">Select Allergy...</option>
+                                            {[
+                                                "Nuts & Legumes",
+                                                "Seafood",
+                                                "Grains & Gluten",
+                                                "Dairy",
+                                                "Eggs",
+                                                "Soy & Plant Protein",
+                                                "Pollen",
+                                                "Seeds & Others"
+                                            ].map(opt => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
                                     </div>
                                 </div>
                                 {formData.allergies.length > 0 && (
