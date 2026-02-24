@@ -53,7 +53,7 @@ const GoalSelectionPage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
+            <div className="flex-1 flex flex-col items-center justify-center pt-6 px-6 relative z-10">
 
                 <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[40px] shadow-2xl">
                     <div className="text-center mb-8 text-white">

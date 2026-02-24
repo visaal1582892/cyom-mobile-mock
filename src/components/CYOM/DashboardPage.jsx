@@ -319,7 +319,7 @@ const DashboardPage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* MAIN CONTENT */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pb-20 space-y-4 relative z-10">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 relative z-10">
 
                 <div className="bg-[#F8FAFC]/95 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-2xl text-gray-800 min-h-[500px]">
 

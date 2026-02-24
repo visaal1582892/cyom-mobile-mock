@@ -299,7 +299,7 @@ const MealCreationPage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto pb-10 custom-scrollbar px-4">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
                 <div className="w-full max-w-2xl mx-auto mt-4">
                     <div className="mb-4 ml-2 flex items-center justify-between text-white">
                         <div>

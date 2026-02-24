@@ -787,7 +787,7 @@ const MealTrackerPage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto pb-32 custom-scrollbar px-4 relative z-0">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 relative z-0">
                 <div className="w-full max-w-2xl mx-auto mt-4">
 
                     {activeTab === 'input' && (

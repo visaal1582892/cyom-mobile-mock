@@ -144,7 +144,7 @@ const CYOMHomePage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col p-6 relative z-10 max-w-4xl mx-auto w-full">
+            <div className="flex-1 flex flex-col pt-6 px-6 relative z-10 max-w-4xl mx-auto w-full">
 
                 {/* HERO CARD - White Background for Visibility */}
                 {/* HERO CARD - Create Plan Focused */}

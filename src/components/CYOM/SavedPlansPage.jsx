@@ -159,7 +159,7 @@ const SavedPlansPage = () => {
             <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto px-6 pt-6 pb-10 space-y-4 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-6 pt-6 space-y-4 custom-scrollbar">
                 {savedPlans.length === 0 ? (
                     <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 text-center mt-10">
                         <div className="text-4xl mb-3 opacity-50">📂</div>

@@ -20,32 +20,6 @@ const MealHistoryPage = () => {
         const mockLogs = { ...existingLogs };
         let plans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
 
-        // --- ENSURE DEMO PLAN FOR HISTORY ---
-        if (plans.length === 0) {
-            const demoPlan = {
-                id: 'demo-plan',
-                name: 'Demo Nutrition Plan',
-                duration: 7,
-                avgCalories: 2000,
-                createdAt: new Date().toISOString(),
-                plan: {
-                    1: {
-                        breakfast: [{ uuid: 'd1', name: 'Oatmeal with Berries', calculatedCalories: 350, protein: 10, carbs: 60, fats: 5 }],
-                        morningSnack: [{ uuid: 'd2', name: 'Greek Yogurt', calculatedCalories: 150, protein: 15, carbs: 10, fats: 2 }],
-                        lunch: [{ uuid: 'd3', name: 'Grilled Chicken Salad', calculatedCalories: 550, protein: 40, carbs: 20, fats: 25 }],
-                        snacks: [{ uuid: 'd4', name: 'Almonds', calculatedCalories: 200, protein: 6, carbs: 6, fats: 18 }],
-                        dinner: [{ uuid: 'd5', name: 'Baked Salmon with Quinoa', calculatedCalories: 750, protein: 45, carbs: 40, fats: 35 }]
-                    }
-                }
-            };
-            // Duplicate day 1 for other days for simplicity
-            for (let d = 2; d <= 7; d++) demoPlan.plan[d] = { ...demoPlan.plan[1] };
-
-            plans = [demoPlan];
-            localStorage.setItem('cyom_saved_plans', JSON.stringify(plans));
-            localStorage.setItem('cyom_tracker_active_plan_id', 'demo-plan');
-        }
-
         const activePlan = plans.find(p => String(p.id) === localStorage.getItem('cyom_tracker_active_plan_id')) || plans[0];
         const activePlanId = activePlan?.id || 'demo-plan';
         const planDuration = activePlan?.duration || 7;
@@ -228,7 +202,7 @@ const MealHistoryPage = () => {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 px-4 py-6 relative z-10 max-w-4xl mx-auto w-full">
+            <div className="flex-1 px-4 pt-6 relative z-10 max-w-4xl mx-auto w-full">
                 {historyLogs.length === 0 ? (
                     <div className="bg-white p-10 rounded-2xl border border-gray-100 text-center shadow-sm">
                         <div className="text-4xl mb-4">📜</div>
