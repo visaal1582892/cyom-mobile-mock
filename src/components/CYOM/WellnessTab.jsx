@@ -237,7 +237,7 @@ const WellnessTab = () => {
             )}
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="mt-6 mx-4 md:max-w-3xl md:mx-auto relative z-10">
 
                     {/* Date Strip */}

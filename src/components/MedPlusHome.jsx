@@ -17,7 +17,7 @@ const MedPlusHome = () => {
     if (loading) return <Loader text="Entering Nutrition & Wellness..." />;
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
+        <div className="flex flex-col min-h-screen bg-gray-50">
             {/* Header */}
             <header className="bg-[#D32F2F] text-white p-4 sticky top-0 z-10 shadow-md">
                 <div className="max-w-7xl mx-auto w-full">
