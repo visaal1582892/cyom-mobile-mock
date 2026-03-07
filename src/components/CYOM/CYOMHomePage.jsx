@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
-import SidebarMenu from './SidebarMenu';
+import CommonNavbar from './CommonNavbar';
 
 const CYOMHomePage = () => {
     const navigate = useNavigate();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [savedPlans, setSavedPlans] = useState([]);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0); // To force re-render on plan change
@@ -14,6 +12,13 @@ const CYOMHomePage = () => {
     useEffect(() => {
         const loadedPlans = JSON.parse(localStorage.getItem('cyom_saved_plans') || '[]');
         setSavedPlans(loadedPlans);
+
+        // Auto-activate the first plan if none is active yet
+        const activePlanId = localStorage.getItem('cyom_tracker_active_plan_id');
+        if (!activePlanId && loadedPlans.length > 0) {
+            localStorage.setItem('cyom_tracker_active_plan_id', String(loadedPlans[0].id));
+            setRefreshTrigger(prev => prev + 1);
+        }
     }, [isPlanModalOpen]); // Reload when modal opens to ensure fresh data
 
     const handleLogout = () => {
@@ -84,95 +89,55 @@ const CYOMHomePage = () => {
             <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl mix-blend-overlay opacity-30 pointer-events-none"></div>
 
             {/* Header / Status Bar Area */}
-            <div className="pt-6 px-6 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-all shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    <div>
-                        <div className="text-xs font-bold text-white/90 uppercase tracking-wider shadow-sm">Welcome Back</div>
-                        <div className="text-xl font-black text-white drop-shadow-md">{userData.name}</div>
-                    </div>
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg hover:scale-105 transition-transform"
-                    >
-                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
-                    </button>
-
-                    {isProfileOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
-                            <div className="absolute right-0 top-14 w-56 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 py-2 z-20 animate-fade-in-up text-gray-800">
-                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                                    <div className="font-bold text-sm text-gray-800">{userData.name}</div>
-                                    <div className="text-xs text-[#2E7D6B] font-bold">Premium Member</div>
-                                </div>
-                                <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-3 hover:bg-[#F0FDF9] hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                    My Profile
-                                </button>
-                                <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-3 hover:bg-[#F0FDF9] hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                    </svg>
-                                    Saved Plans
-                                </button>
-                                <div className="h-px bg-gray-100 my-1"></div>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-500 text-sm font-medium transition-colors flex items-center gap-3"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    Logout
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+            <CommonNavbar />
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col pt-6 px-6 relative z-10 max-w-4xl mx-auto w-full">
 
-                {/* HERO CARD - White Background for Visibility */}
-                {/* HERO CARD - Create Plan Focused */}
-                <div
-                    onClick={() => navigate('/goal-selection')}
-                    className="bg-white p-6 sm:p-8 rounded-[32px] shadow-xl mb-8 relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
-                >
-                    {/* Decorative Icons - Visible & Vibrant */}
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-8xl drop-shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">📝</div>
-                    <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[#2E7D6B]/10 rounded-full blur-2xl group-hover:bg-[#2E7D6B]/20 transition-colors"></div>
+                {/* HERO CARDS CONTAINER */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                    {/* HERO CARD - Create Diet Plan Focused */}
+                    <div
+                        onClick={() => navigate('/meal-creation')}
+                        className="flex-1 bg-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
+                    >
+                        {/* Decorative Icons - Visible & Vibrant */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-7xl drop-shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">📝</div>
+                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-[#2E7D6B]/10 rounded-full blur-2xl group-hover:bg-[#2E7D6B]/20 transition-colors"></div>
 
-                    <div className="relative z-10 flex flex-col items-start max-w-[70%]">
-                        <div className="bg-[#2E7D6B]/10 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-[#2E7D6B] mb-3 uppercase tracking-wider">
-                            Start Here
+                        <div className="relative z-10 flex flex-col items-start max-w-[80%]">
+                            <div className="bg-[#2E7D6B]/10 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-[#2E7D6B] mb-2 uppercase tracking-wider">
+                                Start Nutrition
+                            </div>
+                            <h1 className="text-xl sm:text-2xl font-black text-gray-800 mb-1 tracking-tight leading-none">
+                                Create Diet Plan
+                            </h1>
+                            <p className="text-gray-500 font-medium mb-3 text-xs">
+                                Design a tailored nutrition plan.
+                            </p>
                         </div>
-                        <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-2 tracking-tight leading-none">
-                            Create New Plan
-                        </h1>
-                        <p className="text-gray-500 font-medium mb-3 max-w-md text-sm sm:text-base">
-                            Design a personalized nutrition plan tailored to your goals.
-                        </p>
+                    </div>
 
-                        <button className="px-6 py-3 bg-[#2E7D6B] text-white font-black rounded-xl shadow-lg shadow-[#2E7D6B]/20 flex items-center gap-2 group-hover:gap-3 transition-all hover:bg-[#256a5b]">
-                            Let's Begin
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </button>
+                    {/* HERO CARD - Create Workout Plan Focused */}
+                    <div
+                        onClick={() => navigate('/workout-creation')}
+                        className="flex-1 bg-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
+                    >
+                        {/* Decorative Icons - Visible & Vibrant */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-7xl drop-shadow-2xl -rotate-12 group-hover:rotate-0 transition-transform duration-500">💪</div>
+                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors"></div>
+
+                        <div className="relative z-10 flex flex-col items-start max-w-[80%]">
+                            <div className="bg-purple-100 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-purple-700 mb-2 uppercase tracking-wider">
+                                Start Fitness
+                            </div>
+                            <h1 className="text-xl sm:text-2xl font-black text-gray-800 mb-1 tracking-tight leading-none">
+                                Create Workout Plan
+                            </h1>
+                            <p className="text-gray-500 font-medium mb-3 text-xs">
+                                Design your perfect exercise routine.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -219,7 +184,7 @@ const CYOMHomePage = () => {
                                 <div className="text-center py-8 text-gray-400">
                                     <div className="text-3xl mb-2">📂</div>
                                     <p>No saved plans found.</p>
-                                    <button onClick={() => navigate('/goal-selection')} className="mt-4 text-[#2E7D6B] font-bold text-sm hover:underline">Create a Plan</button>
+                                    <button onClick={() => navigate('/meal-creation')} className="mt-4 text-[#2E7D6B] font-bold text-sm hover:underline">Create a Diet Plan</button>
                                 </div>
                             ) : (
                                 savedPlans.map(plan => (

@@ -1,7 +1,7 @@
 export const calculateBMR = (weight, height, age, gender) => {
     // Mifflin-St Jeor Equation
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
-    if (gender.toLowerCase() === 'male') {
+    if ((gender || 'male').toLowerCase() === 'male') {
         bmr += 5;
     } else {
         bmr -= 161;
@@ -16,7 +16,7 @@ export const calculateTDEE = (bmr, activityLevel) => {
         'moderately active': 1.55,
         'very active': 1.725
     };
-    const multiplier = multipliers[activityLevel.toLowerCase()] || 1.2;
+    const multiplier = multipliers[(activityLevel || 'sedentary').toLowerCase()] || 1.2;
     return Math.round(bmr * multiplier);
 };
 

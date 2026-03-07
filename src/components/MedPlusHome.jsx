@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { userData } from '../data/store';
 import Loader from './UI/Loader';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: { staggerChildren: 0.1 }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
 
 const MedPlusHome = () => {
     const navigate = useNavigate();
@@ -17,7 +31,10 @@ const MedPlusHome = () => {
     if (loading) return <Loader text="Entering Nutrition & Wellness..." />;
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50">
+        <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="flex flex-col min-h-screen bg-gray-50"
+        >
             {/* Header */}
             <header className="bg-[#D32F2F] text-white p-4 sticky top-0 z-10 shadow-md">
                 <div className="max-w-7xl mx-auto w-full">
@@ -39,109 +56,115 @@ const MedPlusHome = () => {
                 </div>
             </header>
 
-            {/* User Greeting */}
-            <div className="bg-white p-4 shadow-sm">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full border border-gray-300 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col flex-1">
+                {/* User Greeting */}
+                <motion.div variants={itemVariants} className="bg-white p-4 shadow-sm">
+                    <div className="max-w-7xl mx-auto flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full border border-gray-300 flex items-center justify-center bg-gray-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div className="text-gray-900 font-medium">Hello {userData.name}</div>
+                                <div className="text-gray-500 text-xs">For The Best Site Experience</div>
+                            </div>
+                        </div>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium shadow-sm">
+                            Login
+                        </motion.button>
+                    </div>
+                </motion.div>
+
+                {/* Nutrition Tab (Swapped) */}
+                <motion.div variants={itemVariants} className="px-4 py-4 md:px-8 max-w-7xl mx-auto w-full">
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleCyomClick}
+                        className="bg-gradient-to-r from-teal-600 to-[#2E7D6B] hover:from-teal-700 hover:to-[#256a5b] transition-all w-full p-5 rounded-2xl text-white flex items-center justify-between shadow-lg cursor-pointer"
+                    >
+                        <div>
+                            <div className="text-xl font-bold tracking-wide">Nutrition and Wellness (CYOM)</div>
+                            <div className="text-sm opacity-90 mt-1 font-medium">Track your meals and nutrition</div>
+                        </div>
+                        <div className="bg-white/20 p-2 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white drop-shadow-sm" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
                             </svg>
                         </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Grid Content */}
+                <motion.div variants={containerVariants} className="max-w-7xl mx-auto p-4 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8 md:p-8 w-full">
+                    {/* Card 1 */}
+                    <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-gradient-to-br from-orange-400 to-orange-500 p-5 rounded-2xl text-white h-40 flex flex-col justify-between relative overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow">
+                        <div className="relative z-10">
+                            <div className="text-sm font-medium opacity-90">Factory Direct</div>
+                            <div className="text-xl font-bold mt-1">Upto 70% Off</div>
+                        </div>
+                        {/* Mock Products */}
+                        <div className="absolute -bottom-2 -right-2 flex gap-1 opacity-80 mix-blend-overlay">
+                            <div className="w-10 h-16 bg-white rounded shadow-sm transform rotate-12"></div>
+                            <div className="w-8 h-12 bg-black/20 rounded shadow-sm transform -rotate-6"></div>
+                        </div>
+                    </motion.div>
+
+                    {/* Card 2 */}
+                    <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-gradient-to-br from-[#4CAF50] to-[#388E3C] p-5 rounded-2xl text-white h-40 flex flex-col justify-between relative overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow">
+                        <div className="relative z-10">
+                            <div className="text-sm font-medium opacity-90">Medicines</div>
+                            <div className="text-xl font-bold mt-1">20% Off</div>
+                        </div>
+                        <div className="absolute bottom-2 right-2 opacity-50">
+                            <div className="flex gap-1">
+                                <div className="w-14 h-6 bg-white rounded-full border-2 border-dashed border-white/50"></div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Card 3 */}
+                    <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-gradient-to-br from-[#B71C1C] to-[#D32F2F] p-5 rounded-2xl text-white h-40 flex flex-col justify-between relative overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow">
                         <div>
-                            <div className="text-gray-900 font-medium">Hello {userData.name}</div>
-                            <div className="text-gray-500 text-xs">For The Best Site Experience</div>
+                            <div className="text-sm font-medium opacity-90">Diagnostics</div>
+                            <div className="text-sm font-medium opacity-90">Lab & Radiology</div>
+                            <div className="text-2xl font-bold mt-2">75% Off</div>
                         </div>
-                    </div>
-                    <button className="bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium">
-                        Login
-                    </button>
-                </div>
-            </div>
+                    </motion.div>
 
-            {/* Nutrition Tab (Swapped) */}
-            <div className="px-4 py-4 md:px-8 max-w-7xl mx-auto w-full">
-                <div
-                    onClick={handleCyomClick}
-                    className="bg-primary hover:bg-teal-700 transition-colors w-full p-4 rounded-lg text-white flex items-center justify-between shadow-md cursor-pointer"
-                >
-                    <div>
-                        <div className="text-lg font-bold">Nutrition and Wellness (CYOM)</div>
-                        <div className="text-sm opacity-90">Track your meals and nutrition</div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-                    </svg>
-                </div>
-            </div>
-
-            {/* Grid Content */}
-            <div className="max-w-7xl mx-auto p-4 grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-10 md:p-8">
-                {/* Card 1 */}
-                <div className="bg-orange-400 p-4 rounded-lg text-white h-40 flex flex-col justify-between relative overflow-hidden transition-transform hover:scale-105 cursor-pointer shadow-sm hover:shadow-md">
-                    <div>
-                        <div className="text-sm font-medium">Factory Direct</div>
-                        <div className="text-xl font-bold">Upto 70% Off</div>
-                    </div>
-                    {/* Mock Products */}
-                    <div className="absolute bottom-[-10px] right-0 flex gap-1">
-                        <div className="w-8 h-12 bg-white rounded shadow-sm"></div>
-                        <div className="w-8 h-14 bg-blue-900 rounded shadow-sm"></div>
-                        <div className="w-10 h-10 bg-purple-700 rounded-full shadow-sm"></div>
-                    </div>
-                </div>
-
-                {/* Card 2 */}
-                <div className="bg-[#4CAF50] p-4 rounded-lg text-white h-40 flex flex-col justify-between relative overflow-hidden transition-transform hover:scale-105 cursor-pointer shadow-sm hover:shadow-md">
-                    <div>
-                        <div className="text-sm font-medium">Medicines</div>
-                        <div className="text-xl font-bold">20% Off</div>
-                    </div>
-                    <div className="absolute bottom-2 right-2">
-                        {/* Pills mock */}
-                        <div className="flex gap-1">
-                            <div className="w-12 h-6 bg-gray-200 rounded-full opacity-80 border-2 border-dashed border-gray-400"></div>
+                    {/* Card 4 */}
+                    <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-gradient-to-br from-[#1565C0] to-[#1976D2] p-5 rounded-2xl text-white h-40 flex flex-col justify-between relative overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-shadow">
+                        <div className="relative z-10">
+                            <div className="text-sm font-medium opacity-90">Doctor Consultation</div>
+                            <div className="text-xl font-bold mt-1">50% Off</div>
                         </div>
-                    </div>
-                </div>
+                        <div className="absolute -bottom-4 -right-4 h-24 w-24 bg-white/10 rounded-full blur-sm"></div>
+                    </motion.div>
+                </motion.div>
 
-                {/* Card 3 */}
-                <div className="bg-[#B71C1C] p-4 rounded-lg text-white h-40 flex flex-col justify-between transition-transform hover:scale-105 cursor-pointer shadow-sm hover:shadow-md">
-                    <div>
-                        <div className="text-sm font-medium">Diagnostics</div>
-                        <div className="text-sm font-medium">Lab & Radiology</div>
-                        <div className="text-xl font-bold mt-1">75% Off</div>
-                    </div>
-                </div>
-
-                {/* Card 4 */}
-                <div className="bg-[#1565C0] p-4 rounded-lg text-white h-40 flex flex-col justify-between relative overflow-hidden transition-transform hover:scale-105 cursor-pointer shadow-sm hover:shadow-md">
-                    <div>
-                        <div className="text-sm font-medium">Doctor Consultation</div>
-                        <div className="text-xl font-bold">50% Off</div>
-                    </div>
-                    <div className="absolute bottom-0 right-0 h-20 w-16 bg-white/20 rounded-tl-full"></div>
-                </div>
-            </div>
-
-            {/* Banner (Swapped) */}
-            <div className="mt-6 px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
-                <div className="rounded-xl overflow-hidden shadow-md flex items-center justify-between p-3 bg-gradient-to-r from-red-600 to-red-800 text-white md:p-6 md:justify-center md:gap-20">
-                    <div>
-                        <div className="text-xs bg-white text-red-600 px-1 inline-block rounded-sm mb-1">MedPlus</div>
-                        <div className="text-xs font-light md:text-base">MedPlus Brand Medicines</div>
-                        <div className="text-3xl font-bold md:text-5xl">50-80%</div>
-                        <div className="text-base font-bold md:text-xl">Discount</div>
-                        <div className="text-[10px] bg-white text-black px-2 py-0.5 rounded-full mt-1 inline-block md:text-xs">Membership at ₹ 99/- per year</div>
-                    </div>
-                    <div className="relative h-24 w-20 md:h-36 md:w-28">
-                        {/* Mocking the person image */}
-                        <div className="absolute bottom-0 right-0 h-20 w-16 bg-gray-800 rounded-t-lg opacity-20 md:h-30 md:w-24"></div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+                {/* Banner (Swapped) */}
+                <motion.div variants={itemVariants} className="mt-2 px-4 pb-8 md:px-8 max-w-7xl mx-auto w-full">
+                    <motion.div whileHover={{ scale: 1.01 }} className="rounded-2xl overflow-hidden shadow-lg flex items-center justify-between p-4 bg-gradient-to-r from-red-600 via-red-700 to-red-900 text-white md:p-8 md:justify-center md:gap-24 relative">
+                        <div className="relative z-10">
+                            <div className="text-[10px] bg-white text-red-700 font-bold px-2 py-0.5 inline-block rounded uppercase tracking-wider mb-2 shadow-sm">MedPlus Advantage</div>
+                            <div className="text-sm font-medium opacity-90 md:text-lg">MedPlus Brand Medicines</div>
+                            <div className="text-4xl font-extrabold md:text-6xl drop-shadow-md tracking-tight">50-80%</div>
+                            <div className="text-lg font-bold md:text-2xl text-red-200">Discount</div>
+                            <div className="text-[10px] bg-white/20 backdrop-blur-sm text-white border border-white/30 px-3 py-1 rounded-full mt-3 inline-block font-medium shadow-inner md:text-xs">Membership at ₹ 99/- per year</div>
+                        </div>
+                        <div className="relative h-28 w-24 md:h-40 md:w-32 z-10">
+                            {/* Decorative element replacing image */}
+                            <div className="absolute -bottom-4 -right-4 h-32 w-32 bg-white/10 rounded-full blur-2xl"></div>
+                            <svg className="w-full h-full text-white/20" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                            </svg>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            </motion.div>
+        </motion.div>
     );
 };
 

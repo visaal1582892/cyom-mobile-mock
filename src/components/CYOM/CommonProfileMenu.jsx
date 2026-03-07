@@ -29,7 +29,7 @@ const CommonProfileMenu = () => {
                             <div className="font-bold text-sm truncate">{userData.name}</div>
                             <div className="text-xs text-gray-500">Premium Member</div>
                         </div>
-                        <button onClick={() => { navigate('/profile'); setIsOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
+                        <button onClick={() => { navigate('/onboarding/personal-info'); setIsOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>

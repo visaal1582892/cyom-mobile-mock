@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
-import SidebarMenu from './SidebarMenu';
-
+import { motion, AnimatePresence } from 'framer-motion';
+import CommonNavbar from './CommonNavbar';
 
 import TeaSmall from '../../assets/tea small.png';
 import TeaMedium from '../../assets/tea medium.png';
@@ -35,22 +35,101 @@ const InputField = ({ label, name, value, type = "text", placeholder, suffix, on
     </div>
 );
 
+const MEAL_SLOTS = [
+    { id: 'breakfast', label: 'Breakfast' },
+    { id: 'morningSnack', label: 'Morning Snack' },
+    { id: 'lunch', label: 'Lunch' },
+    { id: 'snacks', label: 'Eve Snack' },
+    { id: 'dinner', label: 'Dinner' }
+];
+
+const MealSlotMultiSelect = ({ value, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selected = MEAL_SLOTS.filter(m => value[m.id]);
+
+    return (
+        <div className="relative">
+            <div
+                onClick={() => setIsOpen(o => !o)}
+                className="w-full h-[46px] bg-[#F4F9F8] border-2 border-transparent focus-within:border-[#2E7D6B] rounded-2xl px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition-colors"
+            >
+                <div className="flex flex-nowrap gap-1.5 flex-1 items-center overflow-hidden pr-2">
+                    {selected.length === 0 ? (
+                        <span className="text-gray-400 text-xs font-bold pl-1">Select meals…</span>
+                    ) : (
+                        <>
+                            {selected.slice(0, 2).map(m => (
+                                <span key={m.id} className="bg-[#E4F1EC] text-[#2E7D6B] px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                                    {m.label}
+                                </span>
+                            ))}
+                            {selected.length > 2 && (
+                                <span className="text-gray-400 font-black text-lg leading-none transform -translate-y-1 ml-1">...</span>
+                            )}
+                        </>
+                    )}
+                </div>
+                <svg className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar">
+                        {MEAL_SLOTS.map(meal => {
+                            const isSelected = value[meal.id];
+                            return (
+                                <div
+                                    key={meal.id}
+                                    onClick={(e) => { e.stopPropagation(); onChange(meal.id); }}
+                                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer rounded-xl transition-colors"
+                                >
+                                    <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#2E7D6B] border-transparent' : 'bg-white border-2 border-gray-200'}`}>
+                                        {isSelected && (
+                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-700">{meal.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const MealCreationPage = () => {
     const navigate = useNavigate();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+
+    const formatTime = (hour) => {
+        if (hour === 0) return '12 AM';
+        if (hour === 12) return '12 PM';
+        return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+    };
 
     const [formData, setFormData] = useState({
-        currentWeight: userData.weight,
-        currentHeight: userData.height,
-        activityLevel: 'Lightly Active',
-        targetWeightLoss: 0,
-        goalDuration: '1 Month', // Default to 1 Month
+        currentWeight: userData.weight || '',
+        currentHeight: userData.height || '',
+        fitnessGoal: userData.fitnessGoal || 'lose_weight',
+        targetWeightLoss: userData.targetWeight || '',
+
+        // Map "1 month" to "1 Month", "3 months" to "3 Months" 
+        goalDuration: userData.goalDuration === '1 month' ? '1 Month' :
+            userData.goalDuration === '3 months' ? '3 Months' :
+                userData.goalDuration === '6 months' ? '6 Months' : '1 Month',
+
         proteinPreference: 'Moderate',
         dietPreference: 'Vegetarian',
         cuisineStyle: 'North Indian',
         planDuration: '1 Day',
-        allergies: [],
+        allergies: userData.allergies || [],
+        healthConditions: userData.healthConditions || [],
         beverageSchedule: [],
         selectedMeals: {
             breakfast: true,
@@ -58,7 +137,8 @@ const MealCreationPage = () => {
             lunch: true,
             snacks: true, // Evening Snack
             dinner: true
-        }
+        },
+        eatingWindow: { start: 8, end: 20 }
     });
 
     const [currentStep, setCurrentStep] = useState(1);
@@ -140,12 +220,18 @@ const MealCreationPage = () => {
             if (validateStep1()) setCurrentStep(2);
         } else if (currentStep === 2) {
             setCurrentStep(3);
+        } else if (currentStep === 3) {
+            handleCreatePlan(); // Using a wrapper to avoid naming collision if any
         }
     };
 
-    const handleCreateMeal = () => {
-        navigate('/meal-planner', { state: formData });
+    const handleCreatePlan = () => {
+        setIsCreatingPlan(true);
+        setTimeout(() => {
+            navigate('/meal-planner', { state: formData });
+        }, 2500);
     };
+
 
 
 
@@ -165,9 +251,23 @@ const MealCreationPage = () => {
         }));
     };
 
-    const handleLogout = () => {
-        navigate('/login');
+    const addHealthCondition = (condition) => {
+        if (!formData.healthConditions.includes(condition)) {
+            setFormData(prev => ({
+                ...prev,
+                healthConditions: [...prev.healthConditions, condition]
+            }));
+        }
     };
+
+    const removeHealthCondition = (condition) => {
+        setFormData(prev => ({
+            ...prev,
+            healthConditions: prev.healthConditions.filter(c => c !== condition)
+        }));
+    };
+
+
 
     // --- New Refreshment Logic ---
 
@@ -229,74 +329,65 @@ const MealCreationPage = () => {
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#43AA95] to-[#A8E6CF] font-sans relative overflow-hidden text-white">
 
+            {/* Custom Plan Creation Loader Overlay */}
+            <AnimatePresence>
+                {isCreatingPlan && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-xl p-8"
+                    >
+                        <div className="relative w-56 h-56 flex items-center justify-center mt-4">
+                            <motion.div
+                                animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                className="absolute inset-0 bg-gradient-to-tr from-[#A8E6CF]/40 to-[#FFD166]/40 rounded-full blur-3xl"
+                            />
+                            <motion.img
+                                src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHV5bWF2eG1kNzNmbzB5ZWhuaHVnOHpzbTZtd2Vpb2Y5NWU0cGEzYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/SGWOYOsHtokMo2pDVt/giphy.gif"
+                                alt="Crafting your plan"
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                                className="w-full h-full object-cover rounded-full relative z-10 drop-shadow-[0_0_25px_rgba(46,125,107,0.5)]"
+                            />
+                        </div>
+                        <div className="flex flex-col items-center mt-8 space-y-2 text-center">
+                            <motion.h2
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="text-2xl font-black text-[#2E7D6B] tracking-wide"
+                            >
+                                Crafting Your Plan
+                            </motion.h2>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.3 }}
+                                className="text-gray-500 font-medium text-sm flex gap-1 justify-center items-center"
+                            >
+                                Crunching nutritional data
+                                {[0, 1, 2].map(i => (
+                                    <motion.span
+                                        key={i}
+                                        animate={{ opacity: [0, 1, 0] }}
+                                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                                    >.</motion.span>
+                                ))}
+                            </motion.div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Background Decor */}
             <div className="absolute top-0 right-0 w-full h-[50vh] bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
 
             {/* Header / Status Bar Area */}
-            <div className="pt-6 px-6 flex justify-between items-center relative z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    <div>
-                        <div className="text-xs opacity-80 font-medium text-green-100">Welcome</div>
-                        <div className="flex items-center gap-2">
-                            <div className="text-lg font-bold">{userData.name}! </div>
-                            <div className="flex gap-1">
-                                <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[9px] font-bold border border-white/20">{userData.age} Y</span>
-                                <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[9px] font-bold border border-white/20 uppercase">{userData.gender}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-md hover:border-white transition-all"
-                    >
-                        <img src={userData.image} alt="Profile" className="w-full h-full object-cover" />
-                    </button>
-
-                    {isProfileOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsProfileOpen(false)}></div>
-                            <div className="absolute right-0 top-14 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 py-2 z-20 animate-fade-in-up text-gray-800">
-                                <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                                    <div className="font-bold text-sm truncate">{userData.name}</div>
-                                    <div className="text-xs text-gray-500">Premium Member</div>
-                                </div>
-                                <button onClick={() => navigate('/profile')} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                    My Profile
-                                </button>
-                                <button onClick={() => navigate('/saved-plans')} className="w-full text-left px-4 py-2 hover:bg-[#2E7D6B]/10 hover:text-[#2E7D6B] text-sm font-medium transition-colors flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                    </svg>
-                                    Saved Plans
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-left px-4 py-2 hover:bg-red-50 hover:text-red-500 text-sm font-medium transition-colors flex items-center gap-2 text-red-500"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    Logout
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Sidebar Menu */}
-            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+            <CommonNavbar
+                showSidebarMenu={true}
+            />
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
@@ -312,180 +403,260 @@ const MealCreationPage = () => {
                         {/* Progress Header */}
                         <div className="flex justify-between items-center mb-8">
                             <div className="flex gap-2">
-                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 1 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
-                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
-                                <div className={`h-1.5 w-16 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-[#FFD166] shadow-[0_0_10px_rgba(255,209,102,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${currentStep >= 1 ? 'bg-[#2E7D6B] shadow-[0_0_10px_rgba(46,125,107,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-[#2E7D6B] shadow-[0_0_10px_rgba(46,125,107,0.5)]' : 'bg-gray-100'}`}></div>
+                                <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-[#2E7D6B] shadow-[0_0_10px_rgba(46,125,107,0.5)]' : 'bg-gray-100'}`}></div>
                             </div>
                             <span className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Phase {currentStep} of 3</span>
                         </div>
 
                         {currentStep === 1 ? (
-                            <div className="space-y-5 animate-fade-in">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <InputField label="Weight" name="currentWeight" value={formData.currentWeight} placeholder="0" suffix="kg" type="number" onChange={handleChange} />
-                                    <InputField label="Height" name="currentHeight" value={formData.currentHeight} placeholder="0" suffix="cm" type="number" onChange={handleChange} />
+                            <div className="space-y-5 animate-fade-in text-gray-800">
+                                <div>
+                                    <h2 className="text-xl font-black text-gray-900 mb-0.5 flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center text-sm shadow-sm border border-violet-100/50">👤</span>
+                                        Profile Overview
+                                    </h2>
+                                    <p className="text-gray-400 text-sm">Review your details before building the plan.</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Duration to Achieve</label>
-                                        <div className="relative">
-                                            <select
-                                                name="goalDuration"
-                                                value={formData.goalDuration}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                            >
-                                                {['1 Month', '3 Months', '6 Months'].map(d => (
-                                                    <option key={d}>{d}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
+
+                                {/* Hero Stats Row */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { label: 'Age', value: formData.currentAge || userData.age, unit: 'yrs', color: 'from-violet-500 to-purple-600', bg: 'bg-violet-50', border: 'border-violet-100', text: 'text-violet-600', icon: '🎂' },
+                                        { label: 'Weight', value: formData.currentWeight, unit: 'kg', color: 'from-blue-500 to-cyan-500', bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600', icon: '⚖️' },
+                                        { label: 'Height', value: formData.currentHeight, unit: 'cm', color: 'from-emerald-500 to-teal-500', bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600', icon: '📏' },
+                                    ].map(s => (
+                                        <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-3 flex flex-col items-center text-center shadow-sm`}>
+                                            <span className="text-lg mb-1">{s.icon}</span>
+                                            <div className={`text-xl font-black ${s.text}`}>{s.value}</div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.unit} · {s.label}</div>
                                         </div>
-                                    </div>
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Weight Loss Target</label>
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                name="targetWeightLoss"
-                                                value={formData.targetWeightLoss}
-                                                onChange={handleChange}
-                                                placeholder={`Max ${getMaxWeightLoss(formData.goalDuration)}kg`}
-                                                className={`w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:ring-0 outline-none transition-all font-semibold text-gray-700 placeholder-gray-300 shadow-sm ${parseFloat(formData.targetWeightLoss) > getMaxWeightLoss(formData.goalDuration) ? 'border-red-400 focus:border-red-500 text-red-600' : 'focus:border-[#A8E6CF]'}`}
-                                            />
-                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">kg</span>
+                                    ))}
+                                </div>
+
+                                {/* Goal Banner */}
+                                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2E7D6B] to-[#469C85] p-4 shadow-lg">
+                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full" />
+                                    <div className="absolute -right-2 -bottom-6 w-16 h-16 bg-white/10 rounded-full" />
+                                    <div className="relative z-10">
+                                        <div className="text-[10px] font-black tracking-widest text-white/60 uppercase mb-1">Primary Goal</div>
+                                        <div className="text-base font-black text-white capitalize mb-2">
+                                            {formData.fitnessGoal.replace(/_/g, ' ')}
                                         </div>
-                                        {parseFloat(formData.targetWeightLoss) > getMaxWeightLoss(formData.goalDuration) && (
-                                            <div className="text-[10px] text-red-500 font-bold mt-1 ml-1 animate-pulse">
-                                                Max allowed is {getMaxWeightLoss(formData.goalDuration)}kg for {formData.goalDuration}
+                                        {(formData.fitnessGoal === 'lose_weight' || formData.fitnessGoal === 'manage_weight') && (
+                                            <div className="flex gap-2">
+                                                <span className="bg-white/20 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold border border-white/20">
+                                                    🎯 Lose {formData.targetWeightLoss} kg
+                                                </span>
+                                                <span className="bg-white/20 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold border border-white/20">
+                                                    ⏱ {formData.goalDuration}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Activity Level</label>
-                                        <div className="relative">
-                                            <select
-                                                name="activityLevel"
-                                                value={formData.activityLevel}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                            >
-                                                {['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'].map(level => (
-                                                    <option key={level} value={level}>{level}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                                </svg>
+
+                                {/* Exercise Summary */}
+                                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 shadow-sm">
+                                    <div className="text-[10px] font-black tracking-widest text-amber-500 uppercase mb-2">Exercise Profile</div>
+                                    {userData.exercises === 'Yes' || userData.exercises === true ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold">🏋️ {userData.frequency} days/wk</span>
+                                            <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold">⚡ {userData.intensity}</span>
+                                            {userData.activeShifts?.length > 0 && (
+                                                <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold">
+                                                    🕐 {userData.activeShifts.reduce((s, sh) => s + (parseFloat(userData.shifts?.[sh]?.hours || 0) || 0), 0)} hrs/day
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs font-semibold text-gray-400 italic">No active exercise routine</div>
+                                    )}
+                                </div>
+
+                                {/* Allergies / Conditions */}
+                                {(formData.healthConditions.length > 0 || formData.allergies.length > 0) && (
+                                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        {formData.healthConditions.length > 0 && (
+                                            <div>
+                                                <div className="text-[10px] font-black tracking-widest text-red-400 uppercase mb-1.5">Health Conditions</div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {formData.healthConditions.map(c => (
+                                                        <span key={c} className="px-2.5 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">{c}</span>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Diet Preference</label>
-                                        <select
-                                            name="dietPreference"
-                                            value={formData.dietPreference}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                        >
-                                            <option>Vegetarian</option>
-                                            <option>Non-Vegetarian</option>
-                                            <option>Eggetarian</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Cuisine Style</label>
-                                        <select
-                                            name="cuisineStyle"
-                                            value={formData.cuisineStyle}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                        >
-                                            <option>North Indian</option>
-                                            <option>South Indian</option>
-                                            <option>International</option>
-                                            <option>Mixed</option>
-                                        </select>
-                                    </div>
-                                    <div className="relative group">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Meal Options</label>
-                                        <select
-                                            name="planDuration"
-                                            value={formData.planDuration}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                        >
-                                            {['1 Day', '3 Days', '7 Days'].map(d => (
-                                                <option key={d}>{d}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="relative group">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide ml-1">Allergies</label>
-                                    <div className="relative">
-                                        <select
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    addAllergy(e.target.value);
-                                                    e.target.value = "";
-                                                }
-                                            }}
-                                            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#A8E6CF] focus:ring-0 outline-none transition-all font-semibold text-gray-700 appearance-none cursor-pointer shadow-sm"
-                                        >
-                                            <option value="">Select Allergy...</option>
-                                            {[
-                                                "Nuts & Legumes",
-                                                "Seafood",
-                                                "Grains & Gluten",
-                                                "Dairy",
-                                                "Eggs",
-                                                "Soy & Plant Protein",
-                                                "Pollen",
-                                                "Seeds & Others"
-                                            ].map(opt => (
-                                                <option key={opt} value={opt}>{opt}</option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-                                {formData.allergies.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {formData.allergies.map(all => (
-                                            <span key={all} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-[10px] font-bold border border-red-100 flex items-center gap-2">
-                                                {all}
-                                                <button onClick={() => removeAllergy(all)} className="hover:text-red-800"><svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
-                                            </span>
-                                        ))}
+                                        )}
+                                        {formData.allergies.length > 0 && (
+                                            <div>
+                                                <div className="text-[10px] font-black tracking-widest text-red-400 uppercase mb-1.5">Allergies</div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {formData.allergies.map(a => (
+                                                        <span key={a} className="px-2.5 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">⚠️ {a}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                                <div className="pt-4">
+
+                                <div className="pt-1 flex gap-3">
+                                    <button
+                                        onClick={() => navigate('/onboarding/personal-info')}
+                                        className="px-5 py-3 bg-white border-2 border-gray-200 text-gray-600 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 shadow-sm text-sm"
+                                    >
+                                        Edit Profile
+                                    </button>
                                     <button
                                         onClick={handleNext}
-                                        className="w-full py-4 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-4"
+                                        className="flex-1 py-3 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-base shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                     >
-                                        Next
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        Looks Good, Next
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                         </svg>
                                     </button>
                                 </div>
                             </div>
                         ) : currentStep === 2 ? (
+                            <div className="space-y-6 animate-fade-in text-gray-800">
+                                <div>
+                                    <h2 className="text-xl font-black text-gray-900 mb-1 flex items-center gap-2">
+                                        <span className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-sm shadow-sm border border-green-100/50">🥗</span>
+                                        Meal Preferences
+                                    </h2>
+                                    <p className="text-gray-500 text-sm">Customize your eating schedule and diet.</p>
+                                </div>
+
+                                {/* 24-Hour Eating Window Slider */}
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center px-1">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Eating Window</label>
+                                        <div className="text-sm font-bold text-[#2E7D6B] bg-[#E0F2F1] px-2 py-1 rounded-lg">
+                                            {formatTime(formData.eatingWindow.start)} - {formatTime(formData.eatingWindow.end)} ({formData.eatingWindow.end - formData.eatingWindow.start} hrs)
+                                        </div>
+                                    </div>
+                                    <div className="relative h-12 flex items-center px-2">
+                                        <div className="absolute inset-x-2 h-2 bg-gray-100 rounded-full"></div>
+                                        <div
+                                            className="absolute h-2 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] rounded-full"
+                                            style={{
+                                                left: `${(formData.eatingWindow.start / 24) * 100}%`,
+                                                right: `${100 - (formData.eatingWindow.end / 24) * 100}%`
+                                            }}
+                                        ></div>
+                                        <input
+                                            type="range" min="0" max="24" step="1"
+                                            value={formData.eatingWindow.start}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (val < formData.eatingWindow.end) {
+                                                    setFormData(prev => ({ ...prev, eatingWindow: { ...prev.eatingWindow, start: val } }));
+                                                }
+                                            }}
+                                            className="absolute inset-x-0 w-full appearance-none bg-transparent pointer-events-none z-20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2E7D6B] [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[#2E7D6B] [&::-moz-range-thumb]:shadow-md"
+                                        />
+                                        <input
+                                            type="range" min="0" max="24" step="1"
+                                            value={formData.eatingWindow.end}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (val > formData.eatingWindow.start) {
+                                                    setFormData(prev => ({ ...prev, eatingWindow: { ...prev.eatingWindow, end: val } }));
+                                                }
+                                            }}
+                                            className="absolute inset-x-0 w-full appearance-none bg-transparent pointer-events-none z-20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#2E7D6B] [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[#2E7D6B] [&::-moz-range-thumb]:shadow-md"
+                                        />
+                                    </div>
+                                    <div className="flex justify-between px-1 text-[10px] font-bold text-gray-300">
+                                        <span>12 AM</span>
+                                        <span>6 AM</span>
+                                        <span>12 PM</span>
+                                        <span>6 PM</span>
+                                        <span>11 PM</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Diet Preference</label>
+                                        <select
+                                            name="dietPreference"
+                                            value={formData.dietPreference}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all"
+                                        >
+                                            <option value="Vegetarian">Vegetarian</option>
+                                            <option value="Non-Vegetarian">Non-Vegetarian</option>
+                                            <option value="Eggetarian">Eggetarian</option>
+                                            <option value="Vegan">Vegan</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Cuisine Style</label>
+                                        <select
+                                            name="cuisineStyle"
+                                            value={formData.cuisineStyle}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all"
+                                        >
+                                            <option value="North Indian">North Indian</option>
+                                            <option value="South Indian">South Indian</option>
+                                            <option value="Continental">Continental</option>
+                                            <option value="Mixed">Mixed</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Meal Slots + Plan Duration on one row */}
+                                <div className="flex gap-3 items-start relative z-30">
+                                    {/* Active Meal Slots — multi-select dropdown */}
+                                    <div className="flex-1 space-y-1.5">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Active Meal Slots</label>
+                                        <MealSlotMultiSelect
+                                            value={formData.selectedMeals}
+                                            onChange={(id) => setFormData(prev => ({
+                                                ...prev,
+                                                selectedMeals: { ...prev.selectedMeals, [id]: !prev.selectedMeals[id] }
+                                            }))}
+                                        />
+                                    </div>
+
+                                    {/* Plan Duration */}
+                                    <div className="w-28 space-y-1.5">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Duration</label>
+                                        <select
+                                            value={formData.planDuration}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, planDuration: e.target.value }))}
+                                            className="w-full px-3 py-2.5 rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all cursor-pointer"
+                                        >
+                                            <option value="1 Day">1 Day</option>
+                                            <option value="3 Days">3 Days</option>
+                                            <option value="7 Days">7 Days</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setCurrentStep(1)}
+                                        className="px-6 py-3 bg-white border-2 border-gray-200 text-gray-600 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 shadow-sm text-sm"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleNext}
+                                        className="flex-1 py-3 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-base shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                    >
+                                        Next Phase
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        ) : currentStep === 3 ? (
                             <div className="space-y-3 animate-fade-in text-gray-800">
                                 <div className="mb-2">
                                     <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
@@ -623,7 +794,7 @@ const MealCreationPage = () => {
 
                                 <div className="flex gap-4 pt-2">
                                     <button
-                                        onClick={() => setCurrentStep(1)}
+                                        onClick={() => setCurrentStep(2)}
                                         className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition-all active:scale-95 shadow-sm"
                                     >
                                         Back
@@ -632,65 +803,6 @@ const MealCreationPage = () => {
                                         onClick={handleNext}
                                         className="flex-1 py-3 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold shadow-xl shadow-[#2E7D6B]/40 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                                     >
-                                        Next
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            // Step 3: Meal Selection
-                            <div className="space-y-4 animate-fade-in">
-                                <div className="text-center mb-4">
-                                    <h2 className="text-xl font-black text-[#2E7D6B] mb-1">Select Your Meals</h2>
-                                    <p className="text-gray-500 text-xs">Which meals do you want to plan for?</p>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-2">
-                                    {[
-                                        { id: 'breakfast', label: 'Breakfast', icon: '🍳', time: '8:00 AM' },
-                                        { id: 'morningSnack', label: 'Morning Snack', icon: '🍎', time: '11:00 AM' },
-                                        { id: 'lunch', label: 'Lunch', icon: '🍛', time: '1:00 PM' },
-                                        { id: 'snacks', label: 'Evening Snack', icon: '☕', time: '5:00 PM' },
-                                        { id: 'dinner', label: 'Dinner', icon: '🥣', time: '8:00 PM' }
-                                    ].map((meal) => (
-                                        <div
-                                            key={meal.id}
-                                            onClick={() => setFormData(prev => ({
-                                                ...prev,
-                                                selectedMeals: { ...prev.selectedMeals, [meal.id]: !prev.selectedMeals[meal.id] }
-                                            }))}
-                                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${formData.selectedMeals[meal.id] ? 'border-[#2E7D6B] bg-[#F0FDF9] shadow-sm' : 'border-gray-100 bg-white hover:border-gray-200'}`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                                    {meal.icon}
-                                                </div>
-                                                <div>
-                                                    <div className={`font-bold text-sm ${formData.selectedMeals[meal.id] ? 'text-[#2E7D6B]' : 'text-gray-700'}`}>{meal.label}</div>
-                                                </div>
-                                            </div>
-                                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${formData.selectedMeals[meal.id] ? 'bg-[#2E7D6B] border-[#2E7D6B]' : 'border-gray-300'}`}>
-                                                {formData.selectedMeals[meal.id] && (
-                                                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="pt-4 flex gap-4">
-                                    <button
-                                        onClick={() => setCurrentStep(2)}
-                                        className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition-all active:scale-95 shadow-sm"
-                                    >
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={handleCreateMeal}
-                                        className="flex-1 py-4 bg-gradient-to-r from-[#2E7D6B] to-[#469C85] text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                                    >
                                         Create My Plan
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -698,11 +810,12 @@ const MealCreationPage = () => {
                                     </button>
                                 </div>
                             </div>
-                        )}
+                        ) : null}
+
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

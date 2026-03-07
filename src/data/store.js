@@ -2,12 +2,41 @@ export const userData = {
     name: "Rohit",
     image: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=800&q=80",
     mobile: "9876543210",
-    age: 25,
+    age: 28,
     gender: "Male",
     height: 175,
-    weight: 70,
+    weight: 75,
     location: "HYDERABAD",
     address: "Lee Pharma, Bhavani Nagar, Balanagar, Hyderabad, ...",
+
+    // Step 1: Personal Info & Goals
+    fitnessGoal: 'manage_weight',
+    weightManagementType: 'lose', // 'lose', 'maintain', 'gain'
+    targetWeight: '5',
+    goalDuration: '3 months',
+
+    // Step 2: Health & Medical
+    allergies: [],
+    healthConditions: [],
+
+    // Step 3: Exercise Profile
+    exercises: 'No',
+    modalities: ['Strength training', 'Walking'],
+    frequency: 3,
+    intensity: 'Medium',
+    experienceLevel: 'Intermediate',
+
+    // Step 4: Lifestyle & Health
+    sleepQuality: 'Good',
+    sleepHours: '8',
+    waterIntake: '3',
+    stressLevel: 'Medium',
+    workHours: '8'
+};
+
+// Global setter function to mutate the mock data during session
+export const updateProfileData = (updates) => {
+    Object.assign(userData, updates);
 };
 
 export const consumptionHistory = [

@@ -125,15 +125,40 @@ const MealHistoryPage = () => {
     useEffect(() => {
         let logs = JSON.parse(localStorage.getItem('cyom_daily_logs') || '{}');
 
-        // Detect stale data (logs missing the critical planSnapshot for detail view)
-        // or just not enough data for demo purposes
-        const hasStaleData = Object.values(logs).some(log => log.details && !log.details.planSnapshot);
+        // Detect stale or broken data (logs missing planSnapshot, or mismatched corrupted snapshots)
+        const hasStaleData = Object.values(logs).some(log => {
+            if (!log.details) return true;
+            if (!log.details.planSnapshot) return true;
+            // Strict check: if it's a mock log, check if its snapshot was wiped into an empty object
+            if (Object.keys(log.details.planSnapshot).length === 0) return true;
+
+            // Check for UUID mismatch corruption (where auto-save corrupted the snapshot)
+            // If there's a tracking log but the UUID isn't anywhere in the snapshot, it's corrupt.
+            const tLogsList = Object.keys(log.details.trackingLogs || {});
+            if (tLogsList.length > 0) {
+                const firstLogKey = tLogsList[0];
+                const parts = firstLogKey.split('_');
+                if (parts.length >= 4) {
+                    const testUuid = parts[parts.length - 1];
+                    // Check if this testUuid exists in the plan snapshot
+                    let found = false;
+                    Object.values(log.details.planSnapshot).forEach(slotItems => {
+                        if (Array.isArray(slotItems) && slotItems.some(i => i.uuid === testUuid || testUuid.includes(i.uuid))) found = true;
+                    });
+                    // If tracking log exists but item doesn't exist in snapshot, data is corrupted
+                    if (!found && !testLogIsExtra(firstLogKey)) return true;
+                }
+            }
+            return false;
+        });
+
+        function testLogIsExtra(key) { return key.includes('extra'); }
 
         if (Object.keys(logs).length < 2 || hasStaleData) {
             // If stale, start fresh or specific logic. Here we regenerate fresh for consistency.
             if (hasStaleData) {
                 console.log("Stale mock data detected, regenerating...");
-                logs = {};
+                logs = {}; // Clear corrupted dict
             }
             logs = generateMockHistory(logs);
             localStorage.setItem('cyom_daily_logs', JSON.stringify(logs));

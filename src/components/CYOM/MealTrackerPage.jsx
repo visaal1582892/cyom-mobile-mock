@@ -43,6 +43,9 @@ const MealTrackerPage = () => {
     const [selectedFoodItem, setSelectedFoodItem] = useState(null); // Item selected from autocomplete
     const [capturedImages, setCapturedImages] = useState({}); // { [planId_day_slot]: 'data:image/...' }
     const [historySnapshot, setHistorySnapshot] = useState(null); // { breakfast: [], lunch: [], ... }
+    const [historyConsumedSet, setHistoryConsumedSet] = useState(null); // Set of item UUIDs consumed in history
+    const [historyPlanId, setHistoryPlanId] = useState(null); // The planId from the selected history log
+    const [editingExtraItem, setEditingExtraItem] = useState(null); // { slot, item } being edited
 
     // --- INITIAL LOAD ---
     useEffect(() => {
@@ -73,10 +76,28 @@ const MealTrackerPage = () => {
                             extras = historyLog.details.extraLogs || {};
                             removed = historyLog.details.removedLogs || {};
                             images = historyLog.details.capturedImages || {};
+
+                            // Improved UUID extraction logic
+                            const consumedUuids = new Set();
+                            Object.keys(logs).forEach(k => {
+                                if (!logs[k]) return;
+                                const parts = k.split('_');
+                                // The tracking key format is: [planId]_[day]_[slot]_[uuid]
+                                // Since planId can have underscores, the slot is the 2nd to last known segment, and uuid is trailing.
+                                const slotNames = ['breakfast', 'morningSnack', 'lunch', 'snacks', 'dinner'];
+                                const slotIdx = parts.findIndex(p => slotNames.includes(p));
+                                if (slotIdx !== -1 && slotIdx < parts.length - 1) {
+                                    const uuid = parts.slice(slotIdx + 1).join('_');
+                                    if (uuid) consumedUuids.add(String(uuid));
+                                }
+                            });
+                            setHistoryConsumedSet(consumedUuids);
                         }
                         // Priority: Use the planId from the history log
-                        if (historyLog.planId) {
-                            localStorage.setItem('cyom_tracker_active_plan_id', String(historyLog.planId));
+                        const histPlanId = historyLog.planId ?? null;
+                        if (histPlanId !== null) {
+                            localStorage.setItem('cyom_tracker_active_plan_id', String(histPlanId));
+                            setHistoryPlanId(histPlanId);
                         }
                         // Priority for Day: URL Param -> History Log -> Default 1
                         const targetDay = dayParam || historyLog.day || 1;
@@ -145,6 +166,8 @@ const MealTrackerPage = () => {
             }
         } else {
             setHistorySnapshot(null);
+            setHistoryPlanId(null);
+            setHistoryConsumedSet(null);
         }
 
         // Find and set active plan (CRITICAL for "seeing the meal")
@@ -190,19 +213,20 @@ const MealTrackerPage = () => {
     }, [searchQuery, selectedFoodItem]);
 
     const handleOpenInlineInput = (slot) => {
-        // If already open for this slot, close it? Or just reset?
         if (activeSearchSlot === slot) {
-            // Close
+            // Close — also clear any edit-in-progress
             setActiveSearchSlot(null);
             setSearchQuery('');
             setInputWeight('');
             setSelectedFoodItem(null);
+            setEditingExtraItem(null);
         } else {
             // Open for this slot
             setActiveSearchSlot(slot);
             setSearchQuery('');
             setInputWeight('');
             setSelectedFoodItem(null);
+            setEditingExtraItem(null);
         }
     };
 
@@ -304,30 +328,66 @@ const MealTrackerPage = () => {
         const key = `${selectedPlanId}_${activeDay}_${activeSearchSlot}`;
         const currentExtras = extraLogs[key] || [];
 
-        const newUuid = 'extra_' + Date.now() + Math.random().toString(36).substr(2, 9);
-        const newItem = {
-            ...scaledItem,
-            uuid: newUuid,
-            isExtra: true
-        };
+        if (editingExtraItem) {
+            if (editingExtraItem.isPlanItem) {
+                // PLAN ITEM EDIT: mark original as removed, add adjusted version as extra
+                const oldItem = editingExtraItem.item;
+                const oldUuid = oldItem.uuid;
 
-        const newExtras = { ...extraLogs, [key]: [...currentExtras, newItem] };
+                // 1. Mark original plan item as removed
+                const removeKey = `${selectedPlanId}_${activeDay}_${activeSearchSlot}_${oldUuid}`;
+                const newRemoved = { ...removedLogs, [removeKey]: true };
+                setRemovedLogs(newRemoved);
+                localStorage.setItem('cyom_removed_items', JSON.stringify(newRemoved));
 
-        setExtraLogs(newExtras);
-        localStorage.setItem('cyom_extra_tracking_items', JSON.stringify(newExtras));
+                // 2. Add adjusted version as extra (new UUID so it's distinct)
+                const newUuid = 'edit_' + oldUuid;
+                const adjustedItem = { ...scaledItem, uuid: newUuid, isExtra: true, editedFrom: oldUuid };
+                const newExtras = { ...extraLogs, [key]: [...currentExtras, adjustedItem] };
+                setExtraLogs(newExtras);
+                localStorage.setItem('cyom_extra_tracking_items', JSON.stringify(newExtras));
 
-        // Auto-select
-        const logKey = `${selectedPlanId}_${activeDay}_${activeSearchSlot}_${newUuid}`;
-        const newLogs = { ...trackingLogs, [logKey]: true };
-        setTrackingLogs(newLogs);
-        localStorage.setItem('cyom_tracking_logs', JSON.stringify(newLogs));
+                // 3. Preserve consumed state: if original was consumed, auto-consume the replacement
+                const wasConsumed = !!trackingLogs[removeKey];
+                if (wasConsumed) {
+                    const newLogKey = `${selectedPlanId}_${activeDay}_${activeSearchSlot}_${newUuid}`;
+                    const newLogs = { ...trackingLogs, [newLogKey]: true };
+                    delete newLogs[removeKey]; // remove old consumed key
+                    setTrackingLogs(newLogs);
+                    localStorage.setItem('cyom_tracking_logs', JSON.stringify(newLogs));
+                }
+            } else {
+                // EXTRA ITEM EDIT: replace in-place, keep same UUID
+                const oldUuid = editingExtraItem.item.uuid;
+                const updatedItem = { ...scaledItem, uuid: oldUuid, isExtra: true };
+                const newExtras = {
+                    ...extraLogs,
+                    [key]: currentExtras.map(i => i.uuid === oldUuid ? updatedItem : i)
+                };
+                setExtraLogs(newExtras);
+                localStorage.setItem('cyom_extra_tracking_items', JSON.stringify(newExtras));
+                // Tracking log key stays the same (same UUID), consumed state preserved
+            }
+            setEditingExtraItem(null);
+        } else {
+            // ADD MODE: create a new extra item
+            const newUuid = 'extra_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const newItem = { ...scaledItem, uuid: newUuid, isExtra: true };
+            const newExtras = { ...extraLogs, [key]: [...currentExtras, newItem] };
+            setExtraLogs(newExtras);
+            localStorage.setItem('cyom_extra_tracking_items', JSON.stringify(newExtras));
 
-        // Reset
+            // Auto-select the new item as consumed
+            const logKey = `${selectedPlanId}_${activeDay}_${activeSearchSlot}_${newUuid}`;
+            const newLogs = { ...trackingLogs, [logKey]: true };
+            setTrackingLogs(newLogs);
+            localStorage.setItem('cyom_tracking_logs', JSON.stringify(newLogs));
+        }
+
+        // Reset inline input
         setSearchQuery('');
         setInputWeight('');
         setSelectedFoodItem(null);
-        // Keep slot open for more adding? Or close? Let's keep open for rapid entry.
-        // setActiveSearchSlot(null); 
     };
 
     const removeItem = (slot, item) => {
@@ -411,13 +471,20 @@ const MealTrackerPage = () => {
     };
 
     const isConsumed = (slot, itemUuid) => {
-        if (!selectedPlanId) return false;
-        return !!trackingLogs[`${selectedPlanId}_${activeDay}_${slot}_${itemUuid}`];
+        // In history mode: use the pre-built UUID set (avoids planId/day key mismatches)
+        if (historySnapshot && historyConsumedSet) {
+            return historyConsumedSet.has(itemUuid);
+        }
+        // In live mode: use the full compound key
+        const keyPlanId = historySnapshot ? (historyPlanId ?? selectedPlanId) : selectedPlanId;
+        if (!keyPlanId) return false;
+        return !!trackingLogs[`${keyPlanId}_${activeDay}_${slot}_${itemUuid}`];
     };
 
     const isRemoved = (slot, itemUuid) => {
-        if (!selectedPlanId) return false;
-        return !!removedLogs[`${selectedPlanId}_${activeDay}_${slot}_${itemUuid}`];
+        const keyPlanId = historySnapshot ? (historyPlanId ?? selectedPlanId) : selectedPlanId;
+        if (!keyPlanId) return false;
+        return !!removedLogs[`${keyPlanId}_${activeDay}_${slot}_${itemUuid}`];
     };
 
     const calculateStats = () => {
@@ -602,7 +669,7 @@ const MealTrackerPage = () => {
                     extraLogs,
                     removedLogs,
                     capturedImages,
-                    planSnapshot: getActivePlan()?.plan?.[activeDay] || {}
+                    planSnapshot: historySnapshot || getActivePlan()?.plan?.[activeDay] || {}
                 }
             };
 
@@ -648,10 +715,10 @@ const MealTrackerPage = () => {
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">No Plans Found</h2>
                 <p className="text-gray-500 mb-6">You need to create a meal plan before you can track it.</p>
                 <button
-                    onClick={() => navigate('/goal-selection')}
+                    onClick={() => navigate('/meal-creation')}
                     className="px-8 py-3 bg-[#2E7D6B] text-white rounded-xl font-bold hover:bg-[#256a5b] transition-all shadow-lg"
                 >
-                    Create Plan
+                    Create Diet Plan
                 </button>
             </div>
         );
@@ -757,7 +824,7 @@ const MealTrackerPage = () => {
                                     </div>
                                     <div className="p-2 border-t border-gray-50 bg-gray-50/30">
                                         <button onClick={() => navigate('/goal-selection')} className="w-full py-1.5 text-center text-[10px] uppercase font-black text-[#2E7D6B] hover:bg-[#2E7D6B]/5 rounded-lg transition-colors">
-                                            + Create New Plan
+                                            + Create Diet Plan
                                         </button>
                                     </div>
                                 </div>
@@ -947,7 +1014,7 @@ const MealTrackerPage = () => {
                                                                 disabled={!selectedFoodItem || !inputWeight}
                                                                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md ${(!selectedFoodItem || !inputWeight) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-[#2E7D6B] text-white hover:bg-[#256a5b] hover:shadow-lg hover:-translate-y-0.5'}`}
                                                             >
-                                                                ADD +
+                                                                {editingExtraItem ? 'Update ✓' : 'ADD +'}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -999,9 +1066,28 @@ const MealTrackerPage = () => {
                                                                 </div>
                                                             </div>
 
-                                                            {/* Delete for ALL Items */}
-                                                            <div className="shrink-0 flex items-center gap-2">
+                                                            {/* Action buttons */}
+                                                            <div className="shrink-0 flex items-center gap-1.5">
                                                                 {checked && <span className="text-[10px] font-bold text-[#2E7D6B] bg-emerald-50 px-2 py-0.5 rounded-md uppercase tracking-wide">Done</span>}
+
+                                                                {/* Edit button — all items in live mode (plan + extra); reads as edit+replace for plan items) */}
+                                                                {!historySnapshot && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEditingExtraItem({ slot, item, isPlanItem: !isExtra });
+                                                                            setActiveSearchSlot(slot);
+                                                                            setSearchQuery(item.name);
+                                                                            setInputWeight(String(item.calculatedWeight || ''));
+                                                                            setSelectedFoodItem(foodDatabase.find(f => f.name === item.name) || null);
+                                                                            setSearchResults([]);
+                                                                        }}
+                                                                        className="p-1.5 text-gray-300 hover:text-[#2E7D6B] rounded-full hover:bg-[#2E7D6B]/10 transition-colors"
+                                                                        title="Edit item"
+                                                                    >
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                                    </button>
+                                                                )}
 
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); removeItem(slot, item); }}

@@ -55,6 +55,27 @@ const MealPlannerPage = () => {
         if (!activeBoosterTab[uuid]) setActiveBoosterTab(prev => ({ ...prev, [uuid]: 'Protein' }));
     };
 
+    const formatTime = (hour) => {
+        if (hour === 0 || hour === 24) return '12 AM';
+        if (hour === 12) return '12 PM';
+        return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+    };
+
+    const getMealTime = (slot) => {
+        const window = preferences.eatingWindow || { start: 8, end: 20 };
+        const { start, end } = window;
+        const totalHours = end - start;
+
+        switch (slot) {
+            case 'breakfast': return formatTime(start);
+            case 'morningSnack': return formatTime(Math.round(start + totalHours * 0.2));
+            case 'lunch': return formatTime(Math.round(start + totalHours * 0.45));
+            case 'snacks': return formatTime(Math.round(start + totalHours * 0.7));
+            case 'dinner': return formatTime(end);
+            default: return '';
+        }
+    };
+
     // INLINE SEARCH STATE
     // Moved to Overlay, but keeping same state structure
     const [inlineSearch, setInlineSearch] = useState({
@@ -184,7 +205,25 @@ const MealPlannerPage = () => {
                 setPreferences(saved.stats.preferences || {});
                 setPlanName(saved.name || "");
             } else {
-                const { currentWeight, currentHeight, activityLevel, targetWeightLoss, goalDuration, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [], selectedMeals = { breakfast: true, lunch: true, snacks: true, dinner: true } } = location.state;
+                const { currentWeight, currentHeight, activityLevel: rawActivityLevel, targetWeightLoss, goalDuration, planDuration: d, dietPreference, cuisineStyle, allergies = [], beverageSchedule = [], selectedMeals = { breakfast: true, lunch: true, snacks: true, dinner: true }, eatingWindow = { start: 8, end: 20 } } = location.state;
+
+                // Derive activity level from total daily workout hours stored in the exercise profile
+                const deriveActivityLevel = () => {
+                    if (userData.exercises === 'No' || !userData.exercises) return 'sedentary';
+                    // Sum hours across all active shifts
+                    const shifts = userData.shifts || {};
+                    const activeShifts = userData.activeShifts || [];
+                    const totalHours = activeShifts.reduce((sum, shift) => {
+                        return sum + (parseFloat(shifts[shift]?.hours || 0) || 0);
+                    }, 0);
+                    if (totalHours < 0.5) return 'sedentary';          // < 30 min/day
+                    if (totalHours < 1) return 'lightly active';        // 30–59 min/day
+                    if (totalHours < 1.75) return 'moderately active';  // 1h–1h 44m/day
+                    return 'very active';                               // ≥ 1h 45m/day
+                };
+                const activityLevel = rawActivityLevel || deriveActivityLevel();
+
+
                 const bmr = calculateBMR(currentWeight, currentHeight, userData.age, userData.gender);
                 const tdee = calculateTDEE(bmr, activityLevel);
                 const target = calculateTargetCalories(currentWeight, currentHeight, userData.age, userData.gender, activityLevel, targetWeightLoss, goalDuration);
@@ -198,7 +237,7 @@ const MealPlannerPage = () => {
                 const macros = calculateMacroTargets(target, targetWeight);
 
                 setStats({ bmr, tdee, targetCalories: target, mealSplit: split, macroTargets: macros });
-                setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule, activeSlots });
+                setPreferences({ dietPreference, cuisineStyle, allergies, beverageSchedule, activeSlots, eatingWindow });
                 setPlanDuration(parseInt(d) || 1);
                 generateMultiDayPlan(parseInt(d) || 1, split, dietPreference, cuisineStyle, allergies, beverageSchedule, activeSlots);
             }
@@ -966,508 +1005,537 @@ const MealPlannerPage = () => {
 
             {/* --- TABLE CONTENT --- */}
             <div className="flex-1 overflow-x-auto overflow-y-auto px-0 sm:px-6 py-0 sm:py-4 custom-scrollbar pb-24 mt-4">
-                <div className="max-w-7xl mx-auto bg-white sm:rounded-2xl shadow-sm border-0 sm:border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-full table-fixed">
-                            <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                                    <th className="p-1 sm:p-4 w-[60%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                        <div className="flex items-center justify-between">
-                                            <span>Meal / Ingredient</span>
-                                        </div>
-                                    </th>
-                                    {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                        <>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Prot <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Carb <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fat <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
-                                        </>
-                                    )}
-                                    {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                        <>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit B <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(Score)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit C <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit A <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit D <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(IU)</span></th>
-                                        </>
-                                    )}
-                                    {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                        <>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Ca <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Mg <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fe <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Zn <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
-                                            <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">I <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
-                                        </>
-                                    )}
-                                </tr>
-                            </thead>
+                <div className="max-w-7xl mx-auto space-y-4">
+                    {/* Eating Window Summary Card */}
+                    {preferences.eatingWindow && (
+                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between mx-4 sm:mx-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-xl">🕒</div>
+                                <div>
+                                    <div className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Eating Window</div>
+                                    <div className="text-sm font-bold text-gray-700">
+                                        {formatTime(preferences.eatingWindow.start)} — {formatTime(preferences.eatingWindow.end)}
+                                        <span className="text-gray-400 text-xs ml-2 font-medium">({preferences.eatingWindow.end - preferences.eatingWindow.start} Hours)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                    <div className="text-[10px] font-black text-blue-400 uppercase tracking-wider">Plan Duration</div>
+                                    <div className="text-sm font-bold text-gray-700">{planDuration} Day{planDuration > 1 ? 's' : ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                            {slots.map(slot => {
-                                const items = plan[currentDay]?.[slot] || [];
-                                const target = stats.mealSplit[slot] || 0;
-                                const ratio = stats.targetCalories ? (target / stats.targetCalories) : 0;
-                                const reqP = Math.round((stats.macroTargets?.protein || 0) * ratio);
-                                const reqC = Math.round((stats.macroTargets?.carbs || 0) * ratio);
-                                const reqF = Math.round((stats.macroTargets?.fats || 0) * ratio);
+                    <div className="bg-white sm:rounded-2xl shadow-sm border-0 sm:border border-gray-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-full table-fixed">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                        <th className="p-1 sm:p-4 w-[60%] text-[10px] sm:text-xs font-bold uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                            <div className="flex items-center justify-between">
+                                                <span>Meal / Ingredient</span>
+                                            </div>
+                                        </th>
+                                        {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                            <>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Energy <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(kcal)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Prot <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Carb <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fat <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(g)</span></th>
+                                            </>
+                                        )}
+                                        {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                            <>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit B <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(Score)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit C <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit A <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Vit D <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(IU)</span></th>
+                                            </>
+                                        )}
+                                        {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                            <>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Ca <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Mg <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Fe <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">Zn <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mg)</span></th>
+                                                <th className="p-0.5 sm:p-4 w-[10%] text-[9px] sm:text-xs font-bold uppercase tracking-wider text-center">I <span className="text-[8px] sm:text-[9px] lowercase opacity-70 block sm:inline">(mcg)</span></th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
 
-                                // Micro Requirements (RDA)
-                                const userGender = userData.gender || 'Male';
-                                const rda = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
+                                {slots.map(slot => {
+                                    const items = plan[currentDay]?.[slot] || [];
+                                    const target = stats.mealSplit[slot] || 0;
+                                    const ratio = stats.targetCalories ? (target / stats.targetCalories) : 0;
+                                    const reqP = Math.round((stats.macroTargets?.protein || 0) * ratio);
+                                    const reqC = Math.round((stats.macroTargets?.carbs || 0) * ratio);
+                                    const reqF = Math.round((stats.macroTargets?.fats || 0) * ratio);
 
-                                // Vitamins
-                                const reqVitB = "100%"; // B-Complex Target
-                                const reqVitC = Math.round(rda.vitamins.vitC.target * ratio);
-                                const reqVitA = Math.round(rda.vitamins.vitA.target * ratio);
-                                const reqVitD = Math.round(rda.vitamins.vitD.target * ratio);
+                                    // Micro Requirements (RDA)
+                                    const userGender = userData.gender || 'Male';
+                                    const rda = RDA_TARGETS[userGender] || RDA_TARGETS.Male;
 
-                                // Minerals
-                                const reqCalc = Math.round(rda.minerals.calcium.target * ratio);
-                                const reqMagn = Math.round(rda.minerals.magnesium.target * ratio);
-                                const reqIron = parseFloat((rda.minerals.iron.target * ratio).toFixed(1));
-                                const reqZinc = parseFloat((rda.minerals.zinc.target * ratio).toFixed(1));
-                                const reqIodine = parseFloat((rda.minerals.iodine.target * ratio).toFixed(1));
+                                    // Vitamins
+                                    const reqVitB = "100%"; // B-Complex Target
+                                    const reqVitC = Math.round(rda.vitamins.vitC.target * ratio);
+                                    const reqVitA = Math.round(rda.vitamins.vitA.target * ratio);
+                                    const reqVitD = Math.round(rda.vitamins.vitD.target * ratio);
 
-                                const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
-                                const bevSlotCals = slotBeverages.reduce((sum, bev) => {
-                                    const s = bev.slots[slot];
-                                    const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
-                                    const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
-                                    return sum + (Math.round(bev.calories * sizeMult + sugarCals) * s.quantity);
-                                }, 0);
+                                    // Minerals
+                                    const reqCalc = Math.round(rda.minerals.calcium.target * ratio);
+                                    const reqMagn = Math.round(rda.minerals.magnesium.target * ratio);
+                                    const reqIron = parseFloat((rda.minerals.iron.target * ratio).toFixed(1));
+                                    const reqZinc = parseFloat((rda.minerals.zinc.target * ratio).toFixed(1));
+                                    const reqIodine = parseFloat((rda.minerals.iodine.target * ratio).toFixed(1));
 
-                                const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0) + bevSlotCals;
-                                const totalP = items.reduce((a, b) => a + b.macros.protein, 0);
-                                const totalC = items.reduce((a, b) => a + b.macros.carbs, 0);
-                                const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
+                                    const slotBeverages = (preferences.beverageSchedule || []).filter(bev => bev.slots[slot]?.active);
+                                    const bevSlotCals = slotBeverages.reduce((sum, bev) => {
+                                        const s = bev.slots[slot];
+                                        const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                                        const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                                        return sum + (Math.round(bev.calories * sizeMult + sugarCals) * s.quantity);
+                                    }, 0);
 
-                                // Helper to calculate B-Score for a set of items
-                                const calculateBatchBScore = (batchItems) => {
-                                    if (!batchItems || batchItems.length === 0) return 0;
+                                    const totalCals = items.reduce((a, b) => a + b.calculatedCalories, 0) + bevSlotCals;
+                                    const totalP = items.reduce((a, b) => a + b.macros.protein, 0);
+                                    const totalC = items.reduce((a, b) => a + b.macros.carbs, 0);
+                                    const totalF = items.reduce((a, b) => a + b.macros.fats, 0);
 
-                                    // Sum all B-vits first
-                                    let totals = { thiamine: 0, riboflavin: 0, niacin: 0, vitB6: 0, folate: 0, vitB12: 0 };
-                                    batchItems.forEach(i => {
-                                        if (i.vitamins) {
-                                            totals.thiamine += (i.vitamins.thiamine || 0);
-                                            totals.riboflavin += (i.vitamins.riboflavin || 0);
-                                            totals.niacin += (i.vitamins.niacin || 0);
-                                            totals.vitB6 += (i.vitamins.vitB6 || 0);
-                                            totals.folate += (i.vitamins.folate || 0);
-                                            totals.vitB12 += (i.vitamins.vitB12 || 0);
-                                        }
-                                    });
+                                    // Helper to calculate B-Score for a set of items
+                                    const calculateBatchBScore = (batchItems) => {
+                                        if (!batchItems || batchItems.length === 0) return 0;
 
-                                    // Calculate % of Target (Compare against the SLOT RATIO Target)
-                                    const t = rda.vitamins;
-                                    // Ensure non-zero targets
-                                    const getT = (key) => (t[key]?.target * ratio) || 1;
+                                        // Sum all B-vits first
+                                        let totals = { thiamine: 0, riboflavin: 0, niacin: 0, vitB6: 0, folate: 0, vitB12: 0 };
+                                        batchItems.forEach(i => {
+                                            if (i.vitamins) {
+                                                totals.thiamine += (i.vitamins.thiamine || 0);
+                                                totals.riboflavin += (i.vitamins.riboflavin || 0);
+                                                totals.niacin += (i.vitamins.niacin || 0);
+                                                totals.vitB6 += (i.vitamins.vitB6 || 0);
+                                                totals.folate += (i.vitamins.folate || 0);
+                                                totals.vitB12 += (i.vitamins.vitB12 || 0);
+                                            }
+                                        });
 
-                                    const score = (
-                                        (Math.min(1, totals.thiamine / getT('thiamine')) +
-                                            Math.min(1, totals.riboflavin / getT('riboflavin')) +
-                                            Math.min(1, totals.niacin / getT('niacin')) +
-                                            Math.min(1, totals.vitB6 / getT('vitB6')) +
-                                            Math.min(1, totals.folate / getT('folate')) +
-                                            Math.min(1, totals.vitB12 / getT('vitB12'))) / 6
-                                    ) * 100;
+                                        // Calculate % of Target (Compare against the SLOT RATIO Target)
+                                        const t = rda.vitamins;
+                                        // Ensure non-zero targets
+                                        const getT = (key) => (t[key]?.target * ratio) || 1;
 
-                                    return Math.round(score);
-                                };
+                                        const score = (
+                                            (Math.min(1, totals.thiamine / getT('thiamine')) +
+                                                Math.min(1, totals.riboflavin / getT('riboflavin')) +
+                                                Math.min(1, totals.niacin / getT('niacin')) +
+                                                Math.min(1, totals.vitB6 / getT('vitB6')) +
+                                                Math.min(1, totals.folate / getT('folate')) +
+                                                Math.min(1, totals.vitB12 / getT('vitB12'))) / 6
+                                        ) * 100;
 
-                                const totalVitBScore = calculateBatchBScore(items);
-                                const totalVitC = items.reduce((a, b) => a + (b.vitamins?.vitC || 0), 0);
-                                const totalVitA = items.reduce((a, b) => a + (b.vitamins?.vitA || 0), 0);
-                                const totalVitD = items.reduce((a, b) => a + (b.vitamins?.vitD || 0), 0);
+                                        return Math.round(score);
+                                    };
 
-                                const totalCalc = items.reduce((a, b) => a + (b.minerals?.calcium || 0), 0);
-                                const totalMagn = items.reduce((a, b) => a + (b.minerals?.magnesium || 0), 0);
-                                const totalIron = parseFloat(items.reduce((a, b) => a + (b.minerals?.iron || 0), 0).toFixed(1));
-                                const totalZinc = parseFloat(items.reduce((a, b) => a + (b.minerals?.zinc || 0), 0).toFixed(1));
-                                const totalIodine = items.reduce((a, b) => a + (b.minerals?.iodine || 0), 0);
+                                    const totalVitBScore = calculateBatchBScore(items);
+                                    const totalVitC = items.reduce((a, b) => a + (b.vitamins?.vitC || 0), 0);
+                                    const totalVitA = items.reduce((a, b) => a + (b.vitamins?.vitA || 0), 0);
+                                    const totalVitD = items.reduce((a, b) => a + (b.vitamins?.vitD || 0), 0);
 
-                                return (
-                                    <tbody key={slot} className="border-b border-gray-100 last:border-0 text-sm sm:text-base">
-                                        {/* SECTION HEADER / TARGETS */}
-                                        <tr className="bg-[#2E7D6B]/5">
-                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-[#f0fdf9] z-10 border-r border-[#2E7D6B]/10 shadow-[2px_0_5px_-2px_rgba(46,125,107,0.1)]">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-base sm:text-lg">
-                                                        {slot === 'breakfast' ? '🌅' : slot === 'morningSnack' ? '🍎' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '☕' : '🌙'}
-                                                    </span>
-                                                    <div>
-                                                        <div className="font-black text-sm sm:text-base uppercase text-[#2E7D6B] tracking-wide">
-                                                            {slot === 'morningSnack' ? 'Morning Snack' : slot === 'snacks' ? 'Evening Snack' : slot}
+                                    const totalCalc = items.reduce((a, b) => a + (b.minerals?.calcium || 0), 0);
+                                    const totalMagn = items.reduce((a, b) => a + (b.minerals?.magnesium || 0), 0);
+                                    const totalIron = parseFloat(items.reduce((a, b) => a + (b.minerals?.iron || 0), 0).toFixed(1));
+                                    const totalZinc = parseFloat(items.reduce((a, b) => a + (b.minerals?.zinc || 0), 0).toFixed(1));
+                                    const totalIodine = items.reduce((a, b) => a + (b.minerals?.iodine || 0), 0);
+
+                                    return (
+                                        <tbody key={slot} className="border-b border-gray-100 last:border-0 text-sm sm:text-base">
+                                            {/* SECTION HEADER / TARGETS */}
+                                            <tr className="bg-[#2E7D6B]/5">
+                                                <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-[#f0fdf9] z-10 border-r border-[#2E7D6B]/10 shadow-[2px_0_5px_-2px_rgba(46,125,107,0.1)]">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-base sm:text-lg">
+                                                            {slot === 'breakfast' ? '🌅' : slot === 'morningSnack' ? '🍎' : slot === 'lunch' ? '☀️' : slot === 'snacks' ? '☕' : '🌙'}
+                                                        </span>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="font-black text-sm sm:text-base uppercase text-[#2E7D6B] tracking-wide">
+                                                                    {slot === 'morningSnack' ? 'Morning Snack' : slot === 'snacks' ? 'Evening Snack' : slot}
+                                                                </div>
+                                                                <div className="text-[10px] bg-[#2E7D6B] text-white px-2 py-0.5 rounded-full font-bold">
+                                                                    {getMealTime(slot)}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-[10px] sm:text-xs text-gray-400 font-medium">Requirements</div>
                                                         </div>
-                                                        <div className="text-[10px] sm:text-xs text-gray-400 font-medium">Requirements</div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                                <>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-[#2E7D6B] font-black border-l border-white bg-[#2E7D6B]/10">{target}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqP}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqF}</td>
-                                                </>
-                                            )}
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                                <>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitB}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitA}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitD}</td>
-                                                </>
-                                            )}
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                                <>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqCalc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqMagn}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIron}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqZinc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIodine}</td>
-                                                </>
-                                            )}
-                                        </tr>
+                                                </td>
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                                    <>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-[#2E7D6B] font-black border-l border-white bg-[#2E7D6B]/10">{target}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqP}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqC}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqF}</td>
+                                                    </>
+                                                )}
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                                    <>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitB}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitC}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitA}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqVitD}</td>
+                                                    </>
+                                                )}
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                                    <>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqCalc}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqMagn}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIron}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqZinc}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-[#2E7D6B] font-bold text-xs sm:text-sm border-l border-white">{reqIodine}</td>
+                                                    </>
+                                                )}
+                                            </tr>
 
-                                        {/* MEAL ITEMS */}
-                                        {items.map((item) => {
-                                            const isExpanded = expandedMeals[item.uuid];
-                                            const itemBScore = calculateBatchBScore([item]);
-                                            return (
-                                                <React.Fragment key={item.uuid}>
-                                                    {/* PARENT ROW */}
-                                                    <tr className="hover:bg-gray-50 transition-colors group">
-                                                        <td className="p-2 sm:p-3 pl-3 sm:pl-4 border-r border-gray-100 border-dashed relative sticky left-0 bg-white group-hover:bg-gray-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer" onClick={() => toggleMeal(item.uuid)}>
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <div className="flex items-center gap-2 min-w-0">
-                                                                    {/* Chevron */}
-                                                                    <div className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-[#2E7D6B]' : ''}`}>
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                                                                    </div>
+                                            {/* MEAL ITEMS */}
+                                            {items.map((item) => {
+                                                const isExpanded = expandedMeals[item.uuid];
+                                                const itemBScore = calculateBatchBScore([item]);
+                                                return (
+                                                    <React.Fragment key={item.uuid}>
+                                                        {/* PARENT ROW */}
+                                                        <tr className="hover:bg-gray-50 transition-colors group">
+                                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 border-r border-gray-100 border-dashed relative sticky left-0 bg-white group-hover:bg-gray-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer" onClick={() => toggleMeal(item.uuid)}>
+                                                                <div className="flex items-center justify-between gap-2">
                                                                     <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className="font-bold text-gray-800 text-sm sm:text-base truncate max-w-[140px] sm:max-w-none">{item.name}</span>
+                                                                        {/* Chevron */}
+                                                                        <div className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-[#2E7D6B]' : ''}`}>
+                                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className="font-bold text-gray-800 text-sm sm:text-base truncate max-w-[140px] sm:max-w-none">{item.name}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 sm:gap-2">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: null, type: 'MEAL', query: '' }); }}
+                                                                            className="text-[#2E7D6B] hover:text-[#256a5b] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B]/20 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-bold"
+                                                                            title="Swap Meal"
+                                                                        >
+                                                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                                                <path d="M20 7H4M4 7l4-4M4 7l4 4M4 17h16m0 0l-4-4m4 4l-4 4" />
+                                                                            </svg>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteMeal(slot, item.uuid); }}
+                                                                            className="text-gray-300 hover:text-red-500 p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                                                        >
+                                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                        </button>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-1 sm:gap-2">
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: null, type: 'MEAL', query: '' }); }}
-                                                                        className="text-[#2E7D6B] hover:text-[#256a5b] bg-[#2E7D6B]/10 hover:bg-[#2E7D6B]/20 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-bold"
-                                                                        title="Swap Meal"
-                                                                    >
-                                                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                                                                            <path d="M20 7H4M4 7l4-4M4 7l4 4M4 17h16m0 0l-4-4m4 4l-4 4" />
-                                                                        </svg>
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMeal(slot, item.uuid); }}
-                                                                        className="text-gray-300 hover:text-red-500 p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                                                    >
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                    </button>
+                                                            </td>
+                                                            {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                                                <>
+                                                                    <td className="p-2 sm:p-3 text-center font-black text-gray-900 text-xs sm:text-sm">{item.calculatedCalories}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
+                                                                </>
+                                                            )}
+                                                            {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                                                <>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{itemBScore}%</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitA || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitD || 0}</td>
+                                                                </>
+                                                            )}
+                                                            {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                                                <>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iodine || 0}</td>
+                                                                </>
+                                                            )}
+                                                        </tr>
+
+                                                        {/* INGREDIENT ROWS (EXPANDABLE) */}
+                                                        {isExpanded && item.composition?.map((comp, idx) => (
+                                                            <tr key={`${item.uuid}_${idx}`} className="bg-gray-50/50 hover:bg-gray-50 transition-colors group/ing animate-fade-in">
+                                                                <td className="p-1 sm:p-2 pl-4 sm:pl-12 border-r border-gray-100 border-dashed relative sticky left-0 bg-gray-50/50 group-hover:bg-gray-50 z-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
+                                                                    <div className="flex items-center justify-between gap-1 sm:gap-4">
+                                                                        <div className="flex items-center gap-1 sm:gap-2 flex-1 relative min-w-0">
+                                                                            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
+                                                                            <button
+                                                                                onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
+                                                                                className="text-sm sm:text-base font-bold text-[#2E7D6B] bg-[#2E7D6B]/5 border border-[#2E7D6B]/20 rounded px-2 py-0.5 truncate hover:bg-[#2E7D6B]/10 hover:border-[#2E7D6B] transition-all text-left shadow-sm"
+                                                                                title="Click to Swap"
+                                                                            >
+                                                                                {comp.name}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => handleShowInfo(e, comp)}
+                                                                                className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-[#2E7D6B] transition-colors"
+                                                                            >
+                                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                </svg>
+                                                                            </button>
+                                                                            {/* Inline Weight Input */}
+                                                                            <div className="flex items-center bg-white border border-gray-200 rounded px-1 ml-auto shrink-0">
+                                                                                <input
+                                                                                    className="w-10 sm:w-16 text-right text-xs sm:text-sm outline-none font-bold text-gray-700 p-0.5 sm:p-1"
+                                                                                    value={comp.scaledWeight}
+                                                                                    onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
+                                                                                />
+                                                                                <span className="text-[8px] sm:text-[9px] text-gray-400 ml-0.5">g</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <button
+                                                                            onClick={() => handleDeleteIngredient(slot, item.uuid, idx)}
+                                                                            className="text-gray-400 hover:text-red-500 p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
+                                                                            title="Delete Ingredient"
+                                                                        >
+                                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                                                    <>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-500">{comp.scaledCalories}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledProtein}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledCarbs}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledFats}</td>
+                                                                    </>
+                                                                )}
+                                                                {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                                                    <>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{calculateBatchBScore([{ vitamins: comp.scaledVits }])}%</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitC || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitA || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitD || '-'}</td>
+                                                                    </>
+                                                                )}
+                                                                {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                                                    <>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.calcium || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.magnesium || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iron || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.zinc || '-'}</td>
+                                                                        <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iodine || '-'}</td>
+                                                                    </>
+                                                                )}
+                                                            </tr>
+                                                        ))}
+
+                                                        {/* SMART MACRO SUGGESTIONS UI */}
+                                                        {isExpanded && (
+                                                            <>
+                                                                {/* Expanded Meal Totals Summary */}
+                                                                <tr className="bg-gray-100/50 sm:bg-gray-50/30 border-b border-gray-100">
+                                                                    <td className="p-2 pl-4 sm:pl-12 text-xs sm:text-sm font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
+                                                                    {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                                                        <>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm font-black text-gray-900">{item.calculatedCalories}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
+                                                                        </>
+                                                                    )}
+                                                                    {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                                                        <>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitB || 0}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitE || 0}</td>
+                                                                            <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitK || 0}</td>
+                                                                        </>
+                                                                    )}
+                                                                    {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                                                        <>
+                                                                            {mineralPage === 0 ? (
+                                                                                <>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.phosphorus || 0}</td>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.potassium || 0}</td>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.sodium || 0}</td>
+                                                                                    <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
+                                                                                    <td className="p-2 text-center"></td>
+                                                                                </>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                </tr>
+
+                                                                <tr>
+                                                                    <td colSpan="5" className="p-0 border-b border-gray-100 bg-[#f9fafb]">
+                                                                        <div className="p-2 sm:p-4">
+                                                                            <div className="flex gap-2 sm:gap-4 mb-2 sm:mb-3 border-b border-gray-200">
+                                                                                {['Protein', 'Carb', 'Fat'].map(macro => (
+                                                                                    <button
+                                                                                        key={macro}
+                                                                                        onClick={() => setActiveBoosterTab(prev => ({ ...prev, [item.uuid]: macro }))}
+                                                                                        className={`pb-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider relative ${activeBoosterTab[item.uuid] === macro ? 'text-[#2E7D6B]' : 'text-gray-400 hover:text-gray-600'}`}
+                                                                                    >
+                                                                                        {/* Mobile: Short Text, Desktop: Full Text */}
+                                                                                        <span className="sm:hidden">{macro}</span>
+                                                                                        <span className="hidden sm:inline">{macro === 'Protein' ? '💪 Add Protein' : macro === 'Carb' ? '🌾 Add Carbs' : '🥑 Add Fats'}</span>
+
+                                                                                        {activeBoosterTab[item.uuid] === macro && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#2E7D6B]"></div>}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+
+                                                                            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                                                {foodDatabase.filter(f => {
+                                                                                    const tab = activeBoosterTab[item.uuid] || 'Protein';
+                                                                                    const catMatch = tab === 'Protein' ? f.category === 'Protein Source' : tab === 'Carb' ? f.category === 'Carb Source' : f.category === 'Fat Source';
+
+                                                                                    // Apply Diet Filters
+                                                                                    let dietMatch = true;
+                                                                                    if (preferences.dietPreference === 'Vegetarian') {
+                                                                                        dietMatch = f.type === 'veg' && f.type !== 'egg' && f.type !== 'non-veg';
+                                                                                    } else if (preferences.dietPreference === 'Eggetarian') {
+                                                                                        dietMatch = (f.type === 'veg' || f.type === 'egg') && f.type !== 'non-veg';
+                                                                                    }
+
+                                                                                    return catMatch && dietMatch && !f.isCombo; // Don't suggest combos as boosters
+                                                                                }).slice(0, 8).map(booster => (
+                                                                                    <button
+                                                                                        key={booster.id}
+                                                                                        onClick={() => handleBoostAdd(slot, item.uuid, booster)}
+                                                                                        className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 text-left hover:border-[#2E7D6B] hover:shadow-md transition-all group/boost"
+                                                                                    >
+                                                                                        <div className="font-bold text-[10px] text-gray-700 truncate mb-1 group-hover/boost:text-[#2E7D6B]">{booster.name}</div>
+                                                                                        <div className="text-[9px] text-gray-400">
+                                                                                            +{Math.round((booster.calories / (booster.ediblePortion || 100)) * 50)} kcal
+                                                                                        </div>
+                                                                                        <div className="flex gap-1 mt-1">
+                                                                                            {booster.protein > 5 && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 rounded">High Pro</span>}
+                                                                                            {booster.fats > 10 && <span className="text-[8px] bg-yellow-50 text-yellow-600 px-1 rounded">Good Fast</span>}
+                                                                                        </div>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+
+                                            {/* BEVERAGES */}
+                                            {slotBeverages.map(bev => {
+                                                const s = bev.slots[slot];
+                                                const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
+                                                const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
+                                                const cals = Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
+                                                return (
+                                                    <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
+                                                        <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0 overflow-hidden p-1">
+                                                                    {bev.name === 'Tea' ? <img src={TeaTabIcon} alt="Tea" className="w-full h-full object-contain" /> :
+                                                                        bev.name === 'Coffee' ? <img src={CoffeeTabIcon} alt="Coffee" className="w-full h-full object-contain" /> :
+                                                                            <img src={MilkTabIcon} alt="Milk" className="w-full h-full object-contain" />}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
+                                                                        {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">w/ {s.sugarTabs} tbsp sugar</span>}
+                                                                    </div>
+                                                                    <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                                        {s.quantity}x {s.cupSize} cup{s.quantity > 1 ? 's' : ''}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </td>
                                                         {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
                                                             <>
-                                                                <td className="p-2 sm:p-3 text-center font-black text-gray-900 text-xs sm:text-sm">{item.calculatedCalories}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
+                                                                <td className="p-2 sm:p-3 text-center font-bold text-gray-700 text-xs sm:text-sm">{cals}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.protein || 0) * sizeMult * s.quantity) || '-'}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.carbs || 0) * sizeMult * s.quantity) || '-'}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.fats || 0) * sizeMult * s.quantity) || '-'}</td>
                                                             </>
                                                         )}
                                                         {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
                                                             <>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{itemBScore}%</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitA || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitD || 0}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
                                                             </>
                                                         )}
                                                         {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
                                                             <>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
-                                                                <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iodine || 0}</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
+                                                                <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
                                                             </>
                                                         )}
                                                     </tr>
+                                                );
+                                            })}
 
-                                                    {/* INGREDIENT ROWS (EXPANDABLE) */}
-                                                    {isExpanded && item.composition?.map((comp, idx) => (
-                                                        <tr key={`${item.uuid}_${idx}`} className="bg-gray-50/50 hover:bg-gray-50 transition-colors group/ing animate-fade-in">
-                                                            <td className="p-1 sm:p-2 pl-4 sm:pl-12 border-r border-gray-100 border-dashed relative sticky left-0 bg-gray-50/50 group-hover:bg-gray-50 z-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
-                                                                <div className="flex items-center justify-between gap-1 sm:gap-4">
-                                                                    <div className="flex items-center gap-1 sm:gap-2 flex-1 relative min-w-0">
-                                                                        <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-300 absolute -left-2 sm:-left-4"></div>
-                                                                        <button
-                                                                            onClick={() => setInlineSearch({ active: true, slot, itemUuid: item.uuid, ingIdx: idx, type: 'ING', query: '' })}
-                                                                            className="text-sm sm:text-base font-bold text-[#2E7D6B] bg-[#2E7D6B]/5 border border-[#2E7D6B]/20 rounded px-2 py-0.5 truncate hover:bg-[#2E7D6B]/10 hover:border-[#2E7D6B] transition-all text-left shadow-sm"
-                                                                            title="Click to Swap"
-                                                                        >
-                                                                            {comp.name}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => handleShowInfo(e, comp)}
-                                                                            className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-[#2E7D6B] transition-colors"
-                                                                        >
-                                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                            </svg>
-                                                                        </button>
-                                                                        {/* Inline Weight Input */}
-                                                                        <div className="flex items-center bg-white border border-gray-200 rounded px-1 ml-auto shrink-0">
-                                                                            <input
-                                                                                className="w-10 sm:w-16 text-right text-xs sm:text-sm outline-none font-bold text-gray-700 p-0.5 sm:p-1"
-                                                                                value={comp.scaledWeight}
-                                                                                onChange={(e) => handleIngredientWeightChange(slot, item.uuid, idx, e.target.value)}
-                                                                            />
-                                                                            <span className="text-[8px] sm:text-[9px] text-gray-400 ml-0.5">g</span>
-                                                                        </div>
-                                                                    </div>
+                                            {/* FOOTER / TOTALS FOR SLOT */}
+                                            <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">
+                                                <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-xs sm:text-sm uppercase text-gray-500 font-bold tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                    <span>Totals</span>
+                                                    <button onClick={() => setInlineSearch({ active: true, slot, type: 'ADD', query: '' })} className="text-[9px] sm:text-[10px] bg-[#2E7D6B] text-white px-2 py-1 rounded hover:bg-[#256a5b] whitespace-nowrap shadow-sm">
+                                                        + Add Items
+                                                    </button>
+                                                </td>
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
+                                                    <>
+                                                        <td className={`p-2 sm:p-3 text-center text-xs sm:text-sm ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalP}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalC}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalF}</td>
+                                                    </>
+                                                )}
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
+                                                    <>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitBScore}%</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitC}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitA}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitD}</td>
+                                                    </>
+                                                )}
+                                                {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
+                                                    <>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalCalc}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalMagn}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIron}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalZinc}</td>
+                                                        <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIodine}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        </tbody>
+                                    );
+                                })}
+                            </table>
 
-                                                                    <button
-                                                                        onClick={() => handleDeleteIngredient(slot, item.uuid, idx)}
-                                                                        className="text-gray-400 hover:text-red-500 p-1 opacity-100 sm:opacity-0 group-hover/ing:opacity-100 transition-opacity"
-                                                                        title="Delete Ingredient"
-                                                                    >
-                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                            {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                                                <>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-500">{comp.scaledCalories}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledProtein}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledCarbs}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledFats}</td>
-                                                                </>
-                                                            )}
-                                                            {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                                                <>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{calculateBatchBScore([{ vitamins: comp.scaledVits }])}%</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitC || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitA || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledVits?.vitD || '-'}</td>
-                                                                </>
-                                                            )}
-                                                            {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                                                <>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.calcium || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.magnesium || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iron || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.zinc || '-'}</td>
-                                                                    <td className="p-1 sm:p-2 text-center text-xs sm:text-sm text-gray-400">{comp.scaledMins?.iodine || '-'}</td>
-                                                                </>
-                                                            )}
-                                                        </tr>
-                                                    ))}
-
-                                                    {/* SMART MACRO SUGGESTIONS UI */}
-                                                    {isExpanded && (
-                                                        <>
-                                                            {/* Expanded Meal Totals Summary */}
-                                                            <tr className="bg-gray-100/50 sm:bg-gray-50/30 border-b border-gray-100">
-                                                                <td className="p-2 pl-4 sm:pl-12 text-xs sm:text-sm font-bold text-gray-500 text-right uppercase tracking-wider">Current Bundle Total</td>
-                                                                {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                                                    <>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm font-black text-gray-900">{item.calculatedCalories}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.protein}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.carbs}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm font-bold text-gray-700">{item.macros.fats}</td>
-                                                                    </>
-                                                                )}
-                                                                {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                                                    <>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitB || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitC || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitE || 0}</td>
-                                                                        <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.vitamins?.vitK || 0}</td>
-                                                                    </>
-                                                                )}
-                                                                {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                                                    <>
-                                                                        {mineralPage === 0 ? (
-                                                                            <>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.calcium || 0}</td>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.iron || 0}</td>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.phosphorus || 0}</td>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.magnesium || 0}</td>
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.potassium || 0}</td>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.sodium || 0}</td>
-                                                                                <td className="p-2 text-center text-xs sm:text-sm text-gray-700">{item.minerals?.zinc || 0}</td>
-                                                                                <td className="p-2 text-center"></td>
-                                                                            </>
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </tr>
-
-                                                            <tr>
-                                                                <td colSpan="5" className="p-0 border-b border-gray-100 bg-[#f9fafb]">
-                                                                    <div className="p-2 sm:p-4">
-                                                                        <div className="flex gap-2 sm:gap-4 mb-2 sm:mb-3 border-b border-gray-200">
-                                                                            {['Protein', 'Carb', 'Fat'].map(macro => (
-                                                                                <button
-                                                                                    key={macro}
-                                                                                    onClick={() => setActiveBoosterTab(prev => ({ ...prev, [item.uuid]: macro }))}
-                                                                                    className={`pb-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider relative ${activeBoosterTab[item.uuid] === macro ? 'text-[#2E7D6B]' : 'text-gray-400 hover:text-gray-600'}`}
-                                                                                >
-                                                                                    {/* Mobile: Short Text, Desktop: Full Text */}
-                                                                                    <span className="sm:hidden">{macro}</span>
-                                                                                    <span className="hidden sm:inline">{macro === 'Protein' ? '💪 Add Protein' : macro === 'Carb' ? '🌾 Add Carbs' : '🥑 Add Fats'}</span>
-
-                                                                                    {activeBoosterTab[item.uuid] === macro && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#2E7D6B]"></div>}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-
-                                                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                                                            {foodDatabase.filter(f => {
-                                                                                const tab = activeBoosterTab[item.uuid] || 'Protein';
-                                                                                const catMatch = tab === 'Protein' ? f.category === 'Protein Source' : tab === 'Carb' ? f.category === 'Carb Source' : f.category === 'Fat Source';
-
-                                                                                // Apply Diet Filters
-                                                                                let dietMatch = true;
-                                                                                if (preferences.dietPreference === 'Vegetarian') {
-                                                                                    dietMatch = f.type === 'veg' && f.type !== 'egg' && f.type !== 'non-veg';
-                                                                                } else if (preferences.dietPreference === 'Eggetarian') {
-                                                                                    dietMatch = (f.type === 'veg' || f.type === 'egg') && f.type !== 'non-veg';
-                                                                                }
-
-                                                                                return catMatch && dietMatch && !f.isCombo; // Don't suggest combos as boosters
-                                                                            }).slice(0, 8).map(booster => (
-                                                                                <button
-                                                                                    key={booster.id}
-                                                                                    onClick={() => handleBoostAdd(slot, item.uuid, booster)}
-                                                                                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 text-left hover:border-[#2E7D6B] hover:shadow-md transition-all group/boost"
-                                                                                >
-                                                                                    <div className="font-bold text-[10px] text-gray-700 truncate mb-1 group-hover/boost:text-[#2E7D6B]">{booster.name}</div>
-                                                                                    <div className="text-[9px] text-gray-400">
-                                                                                        +{Math.round((booster.calories / (booster.ediblePortion || 100)) * 50)} kcal
-                                                                                    </div>
-                                                                                    <div className="flex gap-1 mt-1">
-                                                                                        {booster.protein > 5 && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 rounded">High Pro</span>}
-                                                                                        {booster.fats > 10 && <span className="text-[8px] bg-yellow-50 text-yellow-600 px-1 rounded">Good Fast</span>}
-                                                                                    </div>
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        </>
-                                                    )}
-                                                </React.Fragment>
-                                            );
-                                        })}
-
-                                        {/* BEVERAGES */}
-                                        {slotBeverages.map(bev => {
-                                            const s = bev.slots[slot];
-                                            const sizeMult = s.cupSize === 'Small' ? 0.7 : s.cupSize === 'Large' ? 1.5 : 1;
-                                            const sugarCals = bev.withSugar ? (s.sugarTabs || 1) * 40 : 0;
-                                            const cals = Math.round(bev.calories * sizeMult + sugarCals) * s.quantity;
-                                            return (
-                                                <tr key={`bev-${bev.id}`} className="border-b border-gray-100 bg-orange-50/10 hover:bg-orange-50/20 transition-colors">
-                                                    <td className="p-2 sm:p-3 pl-3 sm:pl-4 sticky left-0 bg-white group-hover:bg-gray-50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center text-xs sm:text-sm shrink-0 overflow-hidden p-1">
-                                                                {bev.name === 'Tea' ? <img src={TeaTabIcon} alt="Tea" className="w-full h-full object-contain" /> :
-                                                                    bev.name === 'Coffee' ? <img src={CoffeeTabIcon} alt="Coffee" className="w-full h-full object-contain" /> :
-                                                                        <img src={MilkTabIcon} alt="Milk" className="w-full h-full object-contain" />}
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-bold text-gray-800 text-[10px] sm:text-xs leading-tight">
-                                                                    {bev.name} {bev.withSugar && <span className="text-orange-500 font-black ml-1">w/ {s.sugarTabs} tbsp sugar</span>}
-                                                                </div>
-                                                                <div className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                                                    {s.quantity}x {s.cupSize} cup{s.quantity > 1 ? 's' : ''}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                                        <>
-                                                            <td className="p-2 sm:p-3 text-center font-bold text-gray-700 text-xs sm:text-sm">{cals}</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.protein || 0) * sizeMult * s.quantity) || '-'}</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.carbs || 0) * sizeMult * s.quantity) || '-'}</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">{Math.round((bev.fats || 0) * sizeMult * s.quantity) || '-'}</td>
-                                                        </>
-                                                    )}
-                                                    {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                                        <>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                        </>
-                                                    )}
-                                                    {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                                        <>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                            <td className="p-2 sm:p-3 text-center text-gray-400 text-xs sm:text-sm">-</td>
-                                                        </>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-
-                                        {/* FOOTER / TOTALS FOR SLOT */}
-                                        <tr className="bg-gray-100/50 border-t border-gray-200 font-bold border-b-4 border-white">
-                                            <td className="p-2 sm:p-3 pl-3 sm:pl-4 text-xs sm:text-sm uppercase text-gray-500 font-bold tracking-wider flex justify-between items-center sticky left-0 bg-gray-50 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                <span>Totals</span>
-                                                <button onClick={() => setInlineSearch({ active: true, slot, type: 'ADD', query: '' })} className="text-[9px] sm:text-[10px] bg-[#2E7D6B] text-white px-2 py-1 rounded hover:bg-[#256a5b] whitespace-nowrap shadow-sm">
-                                                    + Add Items
-                                                </button>
-                                            </td>
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.MACROS && (
-                                                <>
-                                                    <td className={`p-2 sm:p-3 text-center text-xs sm:text-sm ${totalCals > target ? 'text-red-500' : 'text-[#2E7D6B]'}`}>{totalCals}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalP}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalF}</td>
-                                                </>
-                                            )}
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.VITAMINS && (
-                                                <>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitBScore}%</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitC}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitA}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalVitD}</td>
-                                                </>
-                                            )}
-                                            {nutrientCategory === NUTRIENT_CATEGORIES.MINERALS && (
-                                                <>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalCalc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalMagn}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIron}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalZinc}</td>
-                                                    <td className="p-2 sm:p-3 text-center text-xs sm:text-sm text-gray-700 font-bold">{totalIodine}</td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    </tbody>
-                                );
-                            })}
-                        </table>
-
-                        {
-                            !slots.some(s => plan[currentDay]?.[s]?.length > 0) && (
-                                <div className="p-12 text-center text-gray-400 text-xs sm:text-sm">
-                                    No meals planned yet. Use the headers above to add items.
-                                </div>
-                            )
-                        }
+                            {
+                                !slots.some(s => plan[currentDay]?.[s]?.length > 0) && (
+                                    <div className="p-12 text-center text-gray-400 text-xs sm:text-sm">
+                                        No meals planned yet. Use the headers above to add items.
+                                    </div>
+                                )
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
