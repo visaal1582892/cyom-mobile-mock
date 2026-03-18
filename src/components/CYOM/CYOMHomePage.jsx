@@ -95,49 +95,29 @@ const CYOMHomePage = () => {
             <div className="flex-1 flex flex-col pt-6 px-6 relative z-10 max-w-4xl mx-auto w-full">
 
                 {/* HERO CARDS CONTAINER */}
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                    {/* HERO CARD - Create Diet Plan Focused */}
+                <div className="flex flex-col mb-8">
+                    {/* HERO CARD - Unified Plan Creation */}
                     <div
-                        onClick={() => navigate('/meal-creation')}
-                        className="flex-1 bg-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
+                        onClick={() => navigate('/create-plan')}
+                        className="w-full bg-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-[#2E7D6B]/20"
                     >
-                        {/* Decorative Icons - Visible & Vibrant */}
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-7xl drop-shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">📝</div>
-                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-[#2E7D6B]/10 rounded-full blur-2xl group-hover:bg-[#2E7D6B]/20 transition-colors"></div>
+                        {/* Decorative Icons & Gradients */}
+                        <div className="absolute right-8 top-1/2 -translate-y-1/2 text-7xl drop-shadow-2xl opacity-50 rotate-12 group-hover:rotate-0 group-hover:scale-110 transition-transform duration-500">✨</div>
+                        <div className="absolute -bottom-16 -right-16 w-64 h-64 bg-gradient-to-tl from-[#2E7D6B]/20 to-[#A8E6CF]/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
 
                         <div className="relative z-10 flex flex-col items-start max-w-[80%]">
-                            <div className="bg-[#2E7D6B]/10 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-[#2E7D6B] mb-2 uppercase tracking-wider">
-                                Start Nutrition
+                            <div className="bg-[#2E7D6B]/10 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-[#2E7D6B] mb-2 uppercase tracking-wider border border-[#2E7D6B]/20">
+                                Get Started Here
                             </div>
-                            <h1 className="text-xl sm:text-2xl font-black text-gray-800 mb-1 tracking-tight leading-none">
-                                Create Diet Plan
+                            <h1 className="text-2xl sm:text-3xl font-black text-gray-800 mb-2 tracking-tight leading-none">
+                                Create a Plan
                             </h1>
-                            <p className="text-gray-500 font-medium mb-3 text-xs">
-                                Design a tailored nutrition plan.
+                            <p className="text-gray-500 font-medium mb-3 text-sm max-w-[70%]">
+                                Design your personalized workout and nutrition journey in one seamless flow.
                             </p>
                         </div>
-                    </div>
-
-                    {/* HERO CARD - Create Workout Plan Focused */}
-                    <div
-                        onClick={() => navigate('/workout-creation')}
-                        className="flex-1 bg-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group cursor-pointer transition-all hover:shadow-2xl hover:-translate-y-1 border border-white/60"
-                    >
-                        {/* Decorative Icons - Visible & Vibrant */}
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-7xl drop-shadow-2xl -rotate-12 group-hover:rotate-0 transition-transform duration-500">💪</div>
-                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors"></div>
-
-                        <div className="relative z-10 flex flex-col items-start max-w-[80%]">
-                            <div className="bg-purple-100 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-purple-700 mb-2 uppercase tracking-wider">
-                                Start Fitness
-                            </div>
-                            <h1 className="text-xl sm:text-2xl font-black text-gray-800 mb-1 tracking-tight leading-none">
-                                Create Workout Plan
-                            </h1>
-                            <p className="text-gray-500 font-medium mb-3 text-xs">
-                                Design your perfect exercise routine.
-                            </p>
-                        </div>
+                        <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-12 translate-x-[-150%] group-hover:translate-x-[250%] transition-transform duration-1000"></div>
+                        <span className="text-2xl drop-shadow-md">✨</span> Let's Create Your Plan!
                     </div>
                 </div>
 

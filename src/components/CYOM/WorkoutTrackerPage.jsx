@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Play, Calendar as CalendarIcon, Activity, Flame, Clock } from 'lucide-react';
 import CommonNavbar from './CommonNavbar';
 import SidebarMenu from './SidebarMenu';
-import { MOCK_DAILY_EXERCISES } from '../../data/exerciseDatabase';
+import { exerciseDatabase } from '../../data/exerciseDatabase';
 
 // Helper to generate current week
 const generateWeekDays = () => {
@@ -56,6 +56,17 @@ const WorkoutTrackerPage = () => {
     // Log Data: { [dayId]: { [exerciseId]: { timeInvested: 0, repsDone: 0 } } }
     const [dailyLogs, setDailyLogs] = useState({});
 
+    // Load active generated plan
+    const [activePlan, setActivePlan] = useState(null);
+    useEffect(() => {
+        const savedPlan = localStorage.getItem('cyom_generated_workout_plan');
+        if (savedPlan) {
+            try {
+                setActivePlan(JSON.parse(savedPlan));
+            } catch (e) { }
+        }
+    }, []);
+
     // Load from local storage on mount
     useEffect(() => {
         const saved = localStorage.getItem('cyom_workout_logs');
@@ -68,29 +79,36 @@ const WorkoutTrackerPage = () => {
 
         if (parsedLogs && Object.keys(parsedLogs).length > 0) {
             setDailyLogs(parsedLogs);
-        } else {
-            // Seed mock data if empty
+        } else if (activePlan) {
+            // Seed robust mock data if empty based on generated plan
             const mock = {};
             const todayIdx = defaultToday;
-            const pastDays = [0, 1, 2, 3, 4, 5, 6].filter(id => id < todayIdx).slice(-2); // up to 2 past days this week
-            const finalSeedDays = pastDays.length > 0 ? pastDays : [(todayIdx + 6) % 7]; // if Monday, seed Sunday
-
-            finalSeedDays.forEach(dayId => {
-                mock[dayId] = {};
-                // Complete all exercises for seed days
-                MOCK_DAILY_EXERCISES.forEach(ex => {
-                    mock[dayId][ex.id] = {
-                        timeInvested: ex.baseTime,
-                        repsDone: ex.targetRepsPerMin > 0 ? Math.floor((ex.baseTime / 60) * ex.targetRepsPerMin) : 0,
-                        status: 'completed'
-                    };
-                });
+            
+            // Seed all days in the active plan except today to populate history
+            Object.keys(activePlan.plan).forEach(dayIdStr => {
+                const dayId = parseInt(dayIdStr);
+                if (dayId !== todayIdx) {
+                    const dayPlan = activePlan.plan[dayId];
+                    if (dayPlan) {
+                        mock[dayId] = {};
+                        Object.keys(dayPlan).forEach(exId => {
+                            const exDef = exerciseDatabase.find(e => e.id === exId);
+                            if (exDef) {
+                                mock[dayId][exId] = {
+                                    timeInvested: exDef.baseTime,
+                                    repsDone: exDef.targetRepsPerMin > 0 ? Math.floor((exDef.baseTime / 60) * exDef.targetRepsPerMin) : 0,
+                                    status: 'completed'
+                                };
+                            }
+                        });
+                    }
+                }
             });
 
             setDailyLogs(mock);
             localStorage.setItem('cyom_workout_logs', JSON.stringify(mock));
         }
-    }, [defaultToday]);
+    }, [defaultToday, activePlan]);
 
     // Helper to calculate totals for active days
     const getMetrics = () => {
@@ -100,14 +118,16 @@ const WorkoutTrackerPage = () => {
 
         selectedDays.forEach(dayId => {
             const dayLog = dailyLogs[dayId] || {};
-
-            // Loop through exercises to calculate stats
-            MOCK_DAILY_EXERCISES.forEach(ex => {
-                const log = dayLog[ex.id];
-                if (log && log.timeInvested > 0) {
+            
+            // Loop through exercises that have been logged for this day
+            Object.keys(dayLog).forEach(exId => {
+                const log = dayLog[exId];
+                const exDef = exerciseDatabase.find(e => e.id === exId);
+                
+                if (log && log.timeInvested > 0 && exDef) {
                     totalExercises++;
                     totalSeconds += log.timeInvested;
-                    totalCalories += (log.timeInvested / 60) * ex.caloriesPerMin;
+                    totalCalories += (log.timeInvested / 60) * exDef.caloriesPerMin;
                 }
             });
         });
@@ -263,10 +283,11 @@ const WorkoutTrackerPage = () => {
                                     <div className="mt-8 flex justify-end">
                                         <button 
                                             onClick={() => navigate('/active-workout', { state: { dayId: activeWriteDay, isToday: activeDayData.isToday }})}
-                                            className={`px-8 py-3.5 rounded-2xl font-black text-sm flex items-center gap-3 shadow-xl transform transition-transform hover:scale-105 hover:-translate-y-1 ${activeDayData.isToday && metrics.exercises > 0 ? 'bg-amber-500 text-white' : 'bg-[#3BBF9E] text-white hover:bg-[#2E7D6B]'}`}
+                                            disabled={!activePlan?.plan?.[activeWriteDay]}
+                                            className={`px-8 py-3.5 rounded-2xl font-black text-sm flex items-center gap-3 shadow-xl transform transition-transform hover:scale-105 hover:-translate-y-1 ${!activePlan?.plan?.[activeWriteDay] ? 'bg-gray-400 cursor-not-allowed hover:scale-100 hover:translate-y-0 text-white shadow-none' : activeDayData.isToday && metrics.exercises > 0 ? 'bg-amber-500 text-white' : 'bg-[#3BBF9E] text-white hover:bg-[#2E7D6B]'}`}
                                         >
                                             <Play size={18} fill="currentColor" /> 
-                                            {activeDayData.isToday && metrics.exercises > 0 ? "Continue Session" : "Start Session"}
+                                            {!activePlan?.plan?.[activeWriteDay] ? "Rest Day" : activeDayData.isToday && metrics.exercises > 0 ? "Continue Session" : "Start Session"}
                                         </button>
                                     </div>
                                 </div>

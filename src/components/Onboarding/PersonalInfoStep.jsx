@@ -80,7 +80,7 @@ const PersonalInfoStep = () => {
         weight: userProfileData.weight || '',
         healthConditions: userProfileData.healthConditions || [],
         allergies: userProfileData.allergies || [],
-        fitnessGoal: userProfileData.fitnessGoal || '',
+        fitnessGoal: userProfileData.fitnessGoal || 'lose_weight',
         weightManagementType: userProfileData.weightManagementType || 'lose',
         targetWeight: userProfileData.targetWeight || '',
         goalDuration: userProfileData.goalDuration || ''
@@ -125,22 +125,18 @@ const PersonalInfoStep = () => {
         if (!data.weight || data.weight <= 0) newErrors.weight = "Required";
         if (!data.fitnessGoal) newErrors.fitnessGoal = "Required";
 
-        if (data.fitnessGoal === 'manage_weight') {
-            if (!data.weightManagementType) newErrors.weightManagementType = "Required";
+        if (data.fitnessGoal === 'lose_weight' || data.fitnessGoal === 'gain_weight') {
+            if (!data.goalDuration) newErrors.goalDuration = "Required";
+            if (!data.targetWeight || data.targetWeight <= 0) {
+                newErrors.targetWeight = "Required";
+            } else {
+                // Determine max weight based on duration
+                let maxWeight = 3;
+                if (data.goalDuration === '3 months') maxWeight = 10;
+                else if (data.goalDuration === '6 months') maxWeight = 20;
 
-            if (data.weightManagementType === 'lose' || data.weightManagementType === 'gain') {
-                if (!data.goalDuration) newErrors.goalDuration = "Required";
-                if (!data.targetWeight || data.targetWeight <= 0) {
-                    newErrors.targetWeight = "Required";
-                } else {
-                    // Determine max weight based on duration
-                    let maxWeight = 3;
-                    if (data.goalDuration === '3 months') maxWeight = 10;
-                    else if (data.goalDuration === '6 months') maxWeight = 20;
-
-                    if (data.targetWeight > maxWeight) {
-                        newErrors.targetWeight = `Max ${maxWeight}kg for ${data.goalDuration}`;
-                    }
+                if (data.targetWeight > maxWeight) {
+                    newErrors.targetWeight = `Max ${maxWeight}kg for ${data.goalDuration}`;
                 }
             }
         }
@@ -239,51 +235,25 @@ const PersonalInfoStep = () => {
                                 value={data.fitnessGoal}
                                 onChange={(e) => {
                                     handleChange('fitnessGoal', e.target.value);
-                                    if (e.target.value !== 'manage_weight') {
+                                    if (e.target.value !== 'lose_weight' && e.target.value !== 'gain_weight') {
                                         handleChange('targetWeight', '');
                                         handleChange('goalDuration', '');
-                                        handleChange('weightManagementType', 'lose');
                                     }
                                 }}
                                 options={[
-                                    { label: 'Manage Weight', value: 'manage_weight' },
-                                    { label: 'Build Muscle', value: 'build_muscle' },
-                                    { label: 'Improve Endurance', value: 'improve_endurance' }
+                                    { label: 'Lose Weight', value: 'lose_weight' },
+                                    { label: 'Gain Weight', value: 'gain_weight' },
+                                    { label: 'Build Muscle', value: 'build_muscle' }
                                 ]}
                                 error={errors.fitnessGoal}
                                 // We remove the bottom margin here as we handle spacing internally
                                 className="!mb-0"
                             />
 
-                            {/* Contained Conditional Inputs for Manage Weight */}
-                            {data.fitnessGoal === 'manage_weight' && (
+                            {/* Contained Conditional Inputs for Lose/Gain Weight */}
+                            {(data.fitnessGoal === 'lose_weight' || data.fitnessGoal === 'gain_weight') && (
                                 <div className="mt-3 animate-fade-in border-t border-orange-200/60 pt-3">
-                                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 ml-1 uppercase tracking-wider">Management Strategy</label>
-
-                                    {/* Triple Toggle */}
-                                    <div className="flex bg-orange-100/60 p-1 rounded-xl mb-4 relative z-0 relative h-10">
-                                        {['lose', 'maintain', 'gain'].map((type) => (
-                                            <button
-                                                key={type}
-                                                onClick={() => {
-                                                    handleChange('weightManagementType', type);
-                                                    if (type === 'maintain') {
-                                                        handleChange('targetWeight', '');
-                                                        handleChange('goalDuration', '');
-                                                    }
-                                                }}
-                                                className={`flex-1 flex items-center justify-center text-xs font-bold rounded-lg transition-all duration-200 capitalize relative z-10 ${data.weightManagementType === type
-                                                    ? 'text-[#2E7D6B] shadow-sm bg-white'
-                                                    : 'text-gray-500 hover:text-gray-700'
-                                                    }`}
-                                            >
-                                                {type}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {(data.weightManagementType === 'lose' || data.weightManagementType === 'gain') && (
-                                        <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                                    <div className="grid grid-cols-2 gap-3 animate-fade-in">
                                             <div className="relative">
                                                 <label className="block text-[10px] font-bold text-gray-500 mb-1 ml-1 uppercase tracking-wider">Duration</label>
                                                 <div className="relative flex items-center h-[42px]">
@@ -348,7 +318,6 @@ const PersonalInfoStep = () => {
                                                 )}
                                             </div>
                                         </div>
-                                    )}
                                 </div>
                             )}
                         </div>

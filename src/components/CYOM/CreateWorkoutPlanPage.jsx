@@ -4,6 +4,8 @@ import CommonNavbar from './CommonNavbar';
 import { userData } from '../../data/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import MultiSelectDropdown from '../UI/MultiSelectDropdown';
+import { generateWorkoutPlan } from '../../utils/generateWorkoutPlan';
+import exerciseLoadingVideo from '../../assets/execise loading.mp4';
 
 const CreateWorkoutPlanPage = () => {
     const navigate = useNavigate();
@@ -44,6 +46,20 @@ const CreateWorkoutPlanPage = () => {
 
     const handleGenerate = () => {
         setIsCreatingPlan(true);
+
+        // Generate personalized plan
+        const newPlan = generateWorkoutPlan({
+            workoutPlace,
+            equipment,
+            workoutType,
+            workoutDuration: parseFloat(workoutDuration),
+            workoutDays,
+            experienceLevel: userData.experienceLevel || 'Intermediate'
+        });
+
+        // Save to 'backend' (localStorage)
+        localStorage.setItem('cyom_generated_workout_plan', JSON.stringify(newPlan));
+
         setTimeout(() => {
             setIsCreatingPlan(false);
             navigate('/workout-tracker');
@@ -68,14 +84,21 @@ const CreateWorkoutPlanPage = () => {
                                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                                 className="absolute inset-0 bg-gradient-to-tr from-[#A8E6CF]/40 to-[#FFD166]/40 rounded-full blur-3xl"
                             />
-                            <motion.img
-                                src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHV5bWF2eG1kNzNmbzB5ZWhuaHVnOHpzbTZtd2Vpb2Y5NWU0cGEzYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/SGWOYOsHtokMo2pDVt/giphy.gif"
-                                alt="Crafting your plan"
+                            <motion.div
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.5, ease: "easeOut" }}
-                                className="w-full h-full object-cover rounded-full relative z-10 drop-shadow-[0_0_25px_rgba(46,125,107,0.5)]"
-                            />
+                                className="w-full h-full relative z-10 drop-shadow-[0_0_25px_rgba(46,125,107,0.5)] rounded-full overflow-hidden"
+                            >
+                                <video
+                                    src={exerciseLoadingVideo}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-cover"
+                                />
+                            </motion.div>
                         </div>
                         <div className="flex flex-col items-center mt-8 space-y-2 text-center">
                             <motion.h2
@@ -235,21 +258,32 @@ const CreateWorkoutPlanPage = () => {
                                     <p className="text-gray-500 text-sm">Customize your routine parameters.</p>
                                 </div>
 
-                                {/* 1. Workout Place (Select) */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Location</label>
-                                    <select
-                                        value={workoutPlace}
-                                        onChange={(e) => {
-                                            setWorkoutPlace(e.target.value);
-                                            if (e.target.value !== 'Home') setEquipment([]);
-                                        }}
-                                        className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all"
-                                    >
-                                        <option value="" disabled>Select Location</option>
-                                        <option value="Gym">Gym</option>
-                                        <option value="Home">Home</option>
-                                    </select>
+                                {/* 1. Workout Place & 3. Workout Type in a single line */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Location</label>
+                                        <select
+                                            value={workoutPlace}
+                                            onChange={(e) => {
+                                                setWorkoutPlace(e.target.value);
+                                                if (e.target.value !== 'Home') setEquipment([]);
+                                            }}
+                                            className="w-full px-4 h-[42px] rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all"
+                                        >
+                                            <option value="" disabled>Select Location</option>
+                                            <option value="Gym">Gym</option>
+                                            <option value="Home">Home</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2 relative z-20">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Workout Type</label>
+                                        <MultiSelectDropdown
+                                            options={typeOptions}
+                                            selected={workoutType}
+                                            onChange={(val) => toggleSelection(val, workoutType, setWorkoutType)}
+                                            placeholder="Select Type"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* 2. Equipment (Conditional) */}
@@ -264,17 +298,6 @@ const CreateWorkoutPlanPage = () => {
                                         />
                                     </div>
                                 )}
-
-                                {/* 3. Workout Type */}
-                                <div className="space-y-2 relative z-20">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Workout Type</label>
-                                    <MultiSelectDropdown
-                                        options={typeOptions}
-                                        selected={workoutType}
-                                        onChange={(val) => toggleSelection(val, workoutType, setWorkoutType)}
-                                        placeholder="Select Type"
-                                    />
-                                </div>
 
                                 {/* 4. Duration & 5. Time */}
                                 <div className="grid grid-cols-2 gap-4">
@@ -303,40 +326,23 @@ const CreateWorkoutPlanPage = () => {
                                     </div>
                                 </div>
 
-                                {/* 6. Workout Days */}
+                                {/* 6. Workout Days (Select) */}
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between pl-1 pr-1">
-                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Workout Days</label>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setWorkoutDays(daysOfWeek.map(d => d.id))}
-                                                className="text-[10px] font-bold text-[#2E7D6B] hover:text-[#469C85] bg-[#E4F1EC] px-2 py-0.5 rounded-md transition-colors"
-                                            >
-                                                All
-                                            </button>
-                                            <button
-                                                onClick={() => setWorkoutDays([])}
-                                                className="text-[10px] font-bold text-gray-500 hover:text-red-500 bg-gray-100 px-2 py-0.5 rounded-md transition-colors"
-                                            >
-                                                Reset
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-gray-50 py-2 px-2 rounded-xl border border-gray-100">
-                                        {daysOfWeek.map(day => (
-                                            <button
-                                                key={day.id}
-                                                type="button"
-                                                onClick={() => toggleSelection(day.id, workoutDays, setWorkoutDays)}
-                                                className={`w-8 h-8 flex items-center justify-center rounded-full text-[10px] font-black transition-all ${workoutDays.includes(day.id)
-                                                    ? 'bg-[#2E7D6B] text-white shadow-sm'
-                                                    : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-100'
-                                                    }`}
-                                            >
-                                                {day.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Workout Days</label>
+                                    <select
+                                        value={workoutDays.length}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (val === 3) setWorkoutDays([0, 2, 4]); // Mon, Wed, Fri
+                                            else if (val === 5) setWorkoutDays([0, 1, 2, 3, 4]); // Mon-Fri
+                                            else if (val === 7) setWorkoutDays([0, 1, 2, 3, 4, 5, 6]); // Everyday
+                                        }}
+                                        className="w-full px-4 h-[42px] rounded-xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-[#2E7D6B] outline-none text-sm font-bold text-gray-700 transition-all"
+                                    >
+                                        <option value={3}>3 Days per week</option>
+                                        <option value={5}>5 Days per week</option>
+                                        <option value={7}>7 Days per week</option>
+                                    </select>
                                 </div>
 
                                 <div className="flex gap-4 pt-2">

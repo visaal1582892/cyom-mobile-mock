@@ -38,6 +38,9 @@ const SidebarMenu = ({ isOpen, onClose }) => {
                         <button onClick={() => { navigate('/meal-history'); onClose(); }} className={getButtonClass('/meal-history')}>
                             <span className="text-lg">📜</span> Meal History
                         </button>
+                        <button onClick={() => { navigate('/workout-history'); onClose(); }} className={getButtonClass('/workout-history')}>
+                            <span className="text-lg">🏋️</span> Workout History
+                        </button>
                         <button onClick={() => { navigate('/meal-creation'); onClose(); }} className={getButtonClass('/meal-creation')}>
                             <span className="text-lg">🍱</span> Create Diet Plan
                         </button>

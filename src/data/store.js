@@ -10,7 +10,7 @@ export const userData = {
     address: "Lee Pharma, Bhavani Nagar, Balanagar, Hyderabad, ...",
 
     // Step 1: Personal Info & Goals
-    fitnessGoal: 'manage_weight',
+    fitnessGoal: 'lose_weight',
     weightManagementType: 'lose', // 'lose', 'maintain', 'gain'
     targetWeight: '5',
     goalDuration: '3 months',

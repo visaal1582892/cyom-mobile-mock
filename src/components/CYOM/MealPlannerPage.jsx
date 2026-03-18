@@ -922,12 +922,14 @@ const MealPlannerPage = () => {
             <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
                 {/* Top Row: Back + Targets */}
                 <div className="px-3 py-2 flex items-center gap-3 justify-between">
-                    <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors flex items-center gap-1 group">
-                        <div className="w-7 h-7 rounded-full bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors">
-                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                        </div>
-                        <span className="text-xs font-bold text-gray-600 group-hover:text-gray-900 hidden sm:block">Back</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors flex items-center gap-1 group">
+                            <div className="w-7 h-7 rounded-full bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors">
+                                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            </div>
+                            <span className="text-xs font-bold text-gray-600 group-hover:text-gray-900 hidden sm:block">Back</span>
+                        </button>
+                    </div>
 
                     {/* Compact Targets Summary */}
                     <div className="flex items-center gap-2 sm:gap-6 flex-1 justify-end">
@@ -1006,27 +1008,35 @@ const MealPlannerPage = () => {
             {/* --- TABLE CONTENT --- */}
             <div className="flex-1 overflow-x-auto overflow-y-auto px-0 sm:px-6 py-0 sm:py-4 custom-scrollbar pb-24 mt-4">
                 <div className="max-w-7xl mx-auto space-y-4">
-                    {/* Eating Window Summary Card */}
-                    {preferences.eatingWindow && (
-                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between mx-4 sm:mx-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-xl">🕒</div>
-                                <div>
-                                    <div className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Eating Window</div>
-                                    <div className="text-sm font-bold text-gray-700">
-                                        {formatTime(preferences.eatingWindow.start)} — {formatTime(preferences.eatingWindow.end)}
-                                        <span className="text-gray-400 text-xs ml-2 font-medium">({preferences.eatingWindow.end - preferences.eatingWindow.start} Hours)</span>
+                    {/* Top Stats & Links */}
+                    <div className="flex gap-3 sm:gap-4 mx-4 sm:mx-0">
+                        {/* Eating Window Summary Card - takes most space */}
+                        {preferences.eatingWindow && (
+                            <div className="flex-1 bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-orange-50 flex items-center justify-center text-lg sm:text-xl">🕒</div>
+                                    <div>
+                                        <div className="text-[9px] sm:text-[10px] font-black text-orange-400 uppercase tracking-wider">Eating Window</div>
+                                        <div className="text-xs sm:text-sm font-bold text-gray-700">
+                                            {formatTime(preferences.eatingWindow.start)} — {formatTime(preferences.eatingWindow.end)}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="text-right">
+                                <div className="text-right hidden sm:block border-l border-gray-100 pl-4">
                                     <div className="text-[10px] font-black text-blue-400 uppercase tracking-wider">Plan Duration</div>
                                     <div className="text-sm font-bold text-gray-700">{planDuration} Day{planDuration > 1 ? 's' : ''}</div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Workout Plan Link - Compact */}
+                        {localStorage.getItem('cyom_generated_workout_plan') && (
+                            <button onClick={() => navigate('/active-workout')} className="w-20 sm:w-28 flex-shrink-0 bg-gradient-to-br from-[#2E7D6B] to-[#3BBF9E] rounded-2xl p-2 sm:p-3 shadow-md border border-[#266859] flex flex-col items-center justify-center text-white hover:scale-[1.02] active:scale-95 transition-all">
+                                <div className="text-xl sm:text-2xl mb-1 drop-shadow-sm">🏋️</div>
+                                <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-center">Workout</div>
+                            </button>
+                        )}
+                    </div>
 
                     <div className="bg-white sm:rounded-2xl shadow-sm border-0 sm:border border-gray-200 overflow-hidden">
                         <div className="overflow-x-auto">
