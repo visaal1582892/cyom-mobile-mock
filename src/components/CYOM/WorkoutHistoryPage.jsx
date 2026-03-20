@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar as CalendarIcon, Activity, Flame, Clock, TrendingUp, Award } from 'lucide-react';
 import { exerciseDatabase } from '../../data/exerciseDatabase';
+import SidebarMenu from './SidebarMenu';
+import CommonProfileMenu from './CommonProfileMenu';
+import DateRangeCalendar from './DateRangeCalendar';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -25,9 +28,10 @@ export default function WorkoutHistoryPage() {
     const [history, setHistory] = useState([]);
     const [weeklyStats, setWeeklyStats] = useState({ totalCalories: 0, totalTime: 0, totalSessions: 0 });
     const [planName, setPlanName] = useState("Cyom Routine Workout");
-    const [selectedDate, setSelectedDate] = useState(null); // ISO String
+    const [dateRange, setDateRange] = useState({ start: null, end: null }); // ISO String
     const [availableDates, setAvailableDates] = useState(new Set());
     const [currentPage, setCurrentPage] = useState(1);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     useEffect(() => {
         const todayIdx = new Date().getDay();
@@ -163,90 +167,63 @@ export default function WorkoutHistoryPage() {
 
     // Pagination Logic
     const itemsPerPage = 10;
-    const filteredHistory = selectedDate ? history.filter(h => h.date === selectedDate) : history;
+    const filteredHistory = history.filter(h => {
+        if (!dateRange.start && !dateRange.end) return true;
+        
+        if (dateRange.start && !dateRange.end) {
+            return h.date === dateRange.start;
+        }
+
+        if (dateRange.start && dateRange.end) {
+            const startStr = dateRange.start <= dateRange.end ? dateRange.start : dateRange.end;
+            const endStr = dateRange.start <= dateRange.end ? dateRange.end : dateRange.start;
+            return h.date >= startStr && h.date <= endStr;
+        }
+        return true;
+    });
     const MathCeil = Math.ceil(filteredHistory.length / itemsPerPage);
     const totalPages = MathCeil === 0 ? 1 : MathCeil;
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = filteredHistory.slice(indexOfFirstItem, indexOfLastItem);
 
-    const calendarDates = Array.from({ length: 30 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d;
-    }).reverse();
-
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 font-sans">
-            {/* Header */}
-            <div className="bg-white px-4 py-4 shadow-sm flex items-center justify-between sticky top-0 z-50">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
-                >
-                    <ChevronLeft size={20} />
-                </button>
-                <h1 className="text-sm font-black text-gray-800 uppercase tracking-widest">Workout History</h1>
-                <div className="w-10 h-10" />
+            <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+            {/* --- COMPACT HEADER --- */}
+            <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
+                <div className="px-4 py-3 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                        </button>
+                        <div>
+                            <div className="text-[10px] font-black text-[#2E7D6B] uppercase tracking-wider leading-none mb-0.5">Your Journey</div>
+                            <h1 className="text-lg font-black text-gray-800">Workout History</h1>
+                        </div>
+                    </div>
+
+                    <CommonProfileMenu />
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-6">
                 <div className="w-full max-w-2xl mx-auto space-y-6">
 
-                    {/* Horizontal Calendar Filter */}
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center px-1">
-                            <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Select Date</h2>
-                            {selectedDate && (
-                                <button
-                                    onClick={() => { setSelectedDate(null); setCurrentPage(1); }}
-                                    className="text-[10px] font-black text-[#2E7D6B] uppercase tracking-wider hover:underline"
-                                >
-                                    Clear Filter
-                                </button>
-                            )}
-                        </div>
-                        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 mask-fade">
-                            {calendarDates.map((date, idx) => {
-                                const ds = getRelativeDateStr(date);
-                                const isSelected = selectedDate === ds;
-                                const hasData = availableDates.has(ds);
-                                const dayNum = date.getDate();
-                                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-
-                                return (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            if (hasData) {
-                                                setSelectedDate(isSelected ? null : ds);
-                                                setCurrentPage(1);
-                                            }
-                                        }}
-                                        disabled={!hasData}
-                                        className={`flex-shrink-0 w-14 h-20 rounded-2xl flex flex-col items-center justify-center transition-all duration-300
-                                            ${isSelected
-                                                ? 'bg-[#2E7D6B] text-white shadow-lg shadow-[#2E7D6B]/30 scale-105'
-                                                : hasData
-                                                    ? 'bg-white text-gray-600 hover:bg-[#E4F1EC] hover:text-[#2E7D6B] border border-gray-100'
-                                                    : 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-50 border border-transparent'
-                                            }`}
-                                    >
-                                        <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>
-                                            {dayName}
-                                        </span>
-                                        <span className="text-lg font-black">{dayNum}</span>
-                                        {hasData && !isSelected && (
-                                            <div className="w-1 h-1 bg-[#2E7D6B] rounded-full mt-1"></div>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                    {/* Collapsible Grid Calendar Filter */}
+                    <div className="mb-6 relative z-20">
+                        <DateRangeCalendar 
+                            dateRange={dateRange}
+                            onDateRangeChange={(range) => { setDateRange(range); setCurrentPage(1); }}
+                            availableDates={availableDates}
+                        />
                     </div>
 
                     {/* Weekly Summary Card */}
-                    {weeklyStats.totalSessions > 0 && !selectedDate && (
+                    {weeklyStats.totalSessions > 0 && !(dateRange.start || dateRange.end) && (
                         <div className="bg-gradient-to-br from-[#2E7D6B] to-[#3BBF9E] rounded-[24px] p-5 text-white shadow-lg">
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp size={16} className="opacity-80" />

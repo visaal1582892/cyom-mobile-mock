@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userData } from '../../data/store';
 import SidebarMenu from './SidebarMenu';
-
 import CommonProfileMenu from './CommonProfileMenu';
+import DateRangeCalendar from './DateRangeCalendar';
 
 const MealHistoryPage = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [historyLogs, setHistoryLogs] = useState([]);
+    const [dateRange, setDateRange] = useState({ start: null, end: null });
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -197,11 +198,28 @@ const MealHistoryPage = () => {
         });
     };
 
-    // Pagination Logic
+    // Pagination & Filtering Logic
+    const availableDates = historyLogs.map(log => log.date);
+
+    const filteredHistory = historyLogs.filter(log => {
+        if (!dateRange.start && !dateRange.end) return true;
+
+        if (dateRange.start && !dateRange.end) {
+            return log.date === dateRange.start;
+        }
+
+        if (dateRange.start && dateRange.end) {
+            const startStr = dateRange.start <= dateRange.end ? dateRange.start : dateRange.end;
+            const endStr = dateRange.start <= dateRange.end ? dateRange.end : dateRange.start;
+            return log.date >= startStr && log.date <= endStr;
+        }
+        return true;
+    });
+
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = historyLogs.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(historyLogs.length / itemsPerPage);
+    const currentItems = filteredHistory.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-gray-800 relative">
@@ -227,8 +245,17 @@ const MealHistoryPage = () => {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 px-4 pt-6 relative z-10 max-w-4xl mx-auto w-full">
-                {historyLogs.length === 0 ? (
+            <div className="flex-1 px-4 pt-6 relative z-10 max-w-4xl mx-auto w-full pb-8">
+                {/* Collapsible Grid Calendar Filter */}
+                <div className="mb-6 relative z-20">
+                    <DateRangeCalendar 
+                        dateRange={dateRange}
+                        onDateRangeChange={(range) => { setDateRange(range); setCurrentPage(1); }}
+                        availableDates={availableDates}
+                    />
+                </div>
+
+                {filteredHistory.length === 0 ? (
                     <div className="bg-white p-10 rounded-2xl border border-gray-100 text-center shadow-sm">
                         <div className="text-4xl mb-4">📜</div>
                         <h3 className="font-bold text-gray-800">No history found</h3>
@@ -306,7 +333,7 @@ const MealHistoryPage = () => {
                         {totalPages > 1 && (
                             <div className="px-4 py-3 bg-white border-t border-gray-50 flex items-center justify-between">
                                 <div className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                                    {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, historyLogs.length)} of {historyLogs.length}
+                                    {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredHistory.length)} of {filteredHistory.length}
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <button
