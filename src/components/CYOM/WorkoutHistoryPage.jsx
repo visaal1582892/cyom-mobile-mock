@@ -34,8 +34,8 @@ export default function WorkoutHistoryPage() {
         const savedPlanStr = localStorage.getItem('cyom_generated_workout_plan');
         let activePlanDef = null;
         if (savedPlanStr) {
-            try { 
-                activePlanDef = JSON.parse(savedPlanStr); 
+            try {
+                activePlanDef = JSON.parse(savedPlanStr);
                 if (activePlanDef.name) setPlanName(activePlanDef.name);
             } catch (e) { }
         }
@@ -52,8 +52,8 @@ export default function WorkoutHistoryPage() {
         let logs = null;
         const saved = localStorage.getItem('cyom_workout_logs');
         if (saved) {
-            try { 
-                logs = JSON.parse(saved); 
+            try {
+                logs = JSON.parse(saved);
                 // Migration: if keys are numeric, clear them for the better date-based system
                 if (Object.keys(logs).length > 0 && !isNaN(Object.keys(logs)[0])) {
                     logs = null;
@@ -65,7 +65,7 @@ export default function WorkoutHistoryPage() {
         if (!hasRealData(logs)) {
             const sampleExercises = exerciseDatabase.filter(ex => !['Yoga', 'Warm-up'].includes(ex.category));
             const flexPool = exerciseDatabase.filter(ex => ['Yoga', 'Warm-up'].includes(ex.category));
-            
+
             logs = {};
             const today = new Date();
             Array.from({ length: 30 }, (_, i) => i).forEach(dayOffset => {
@@ -73,7 +73,7 @@ export default function WorkoutHistoryPage() {
                 d.setDate(today.getDate() - dayOffset);
                 const ds = getRelativeDateStr(d);
                 logs[ds] = {};
-                
+
                 // Active days vs Rest days
                 if (dayOffset % 3 === 0 && dayOffset !== 0) {
                     // Rest day -> 2 small flexibility moves
@@ -109,7 +109,7 @@ export default function WorkoutHistoryPage() {
             d.setDate(d.getDate() - dayOffset);
             const ds = getRelativeDateStr(d);
             const dayLog = logs[ds];
-            
+
             if (dayLog && Object.keys(dayLog).length > 0) {
                 datesFound.add(ds);
             }
@@ -198,7 +198,7 @@ export default function WorkoutHistoryPage() {
                         <div className="flex justify-between items-center px-1">
                             <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Select Date</h2>
                             {selectedDate && (
-                                <button 
+                                <button
                                     onClick={() => { setSelectedDate(null); setCurrentPage(1); }}
                                     className="text-[10px] font-black text-[#2E7D6B] uppercase tracking-wider hover:underline"
                                 >
@@ -225,10 +225,10 @@ export default function WorkoutHistoryPage() {
                                         }}
                                         disabled={!hasData}
                                         className={`flex-shrink-0 w-14 h-20 rounded-2xl flex flex-col items-center justify-center transition-all duration-300
-                                            ${isSelected 
-                                                ? 'bg-[#2E7D6B] text-white shadow-lg shadow-[#2E7D6B]/30 scale-105' 
-                                                : hasData 
-                                                    ? 'bg-white text-gray-600 hover:bg-[#E4F1EC] hover:text-[#2E7D6B] border border-gray-100' 
+                                            ${isSelected
+                                                ? 'bg-[#2E7D6B] text-white shadow-lg shadow-[#2E7D6B]/30 scale-105'
+                                                : hasData
+                                                    ? 'bg-white text-gray-600 hover:bg-[#E4F1EC] hover:text-[#2E7D6B] border border-gray-100'
                                                     : 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-50 border border-transparent'
                                             }`}
                                     >
@@ -275,16 +275,16 @@ export default function WorkoutHistoryPage() {
                         {history.length > 0 ? (
                             <>
                                 {currentItems.map((record, index) => (
-                                    <div key={index} 
-                                         onClick={() => navigate('/active-workout', { state: { date: record.date, isToday: record.date === getRelativeDateStr(new Date()), isReadOnly: true } })}
-                                         className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] relative overflow-hidden">
-                                        
+                                    <div key={index}
+                                        onClick={() => navigate('/active-workout', { state: { date: record.date, isToday: record.date === getRelativeDateStr(new Date()), isReadOnly: true } })}
+                                        className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] relative overflow-hidden">
+
                                         {record.isRestDay && (
                                             <div className="absolute top-0 right-0 bg-blue-50 text-blue-500 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg">
                                                 Rest Day
                                             </div>
                                         )}
-                                        
+
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-12 h-12 rounded-[14px] bg-[#E4F1EC] flex items-center justify-center text-[#2E7D6B]">
